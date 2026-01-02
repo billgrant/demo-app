@@ -168,6 +168,26 @@ Every request logged as JSON:
 
 ---
 
+## Future Considerations
+
+Features that aren't part of the initial build but fit the "universal demo app" vision:
+
+### Authentication as a Service Provider
+
+The app could optionally act as a SAML SP or OIDC client, enabling demos of identity providers:
+- Okta, Auth0, Azure AD/Entra ID
+- HashiCorp Vault OIDC auth
+- Any SAML 2.0 or OIDC-compliant IdP
+
+**Design principle:** Auth remains optional. The app works without it, but can be configured to require authentication when demoing identity products. Disabled by default, enabled via environment variables pointing to IdP metadata/endpoints.
+
+### Other Future Ideas
+- WebSocket endpoint for real-time demo scenarios
+- Prometheus metrics endpoint (`/metrics`)
+- Configurable response delays (for latency/timeout demos)
+
+---
+
 ## Open Questions
 
 - [ ] Frontend framework choice — React (know it), Vue (simpler), vanilla JS (no build step)?
@@ -179,10 +199,8 @@ Every request logged as JSON:
 
 ## Non-Goals (for now)
 
-- Authentication/authorization
 - Multiple database backends
-- WebSocket/real-time updates
-- Vendor-specific integrations (Vault SDK, Terraform SDK, etc.)
+- Vendor-specific integrations baked into core (Vault SDK, Terraform SDK, etc.)
 
 The app should stay generic. Demo-specific behavior comes from *how you use it*, not built-in features.
 
