@@ -170,7 +170,25 @@ Every request logged as JSON:
 
 ## Future Considerations
 
-Features that aren't part of the initial build but fit the "universal demo app" vision:
+Features that aren't part of the initial build but fit the "universal demo app" vision. These come *after* the app is in a "ready to demo" state (Phase 5 complete).
+
+### MCP Server for AI Agent Demos
+
+Build an MCP (Model Context Protocol) server that connects AI assistants (Claude, etc.) directly to demo-app. This enables demos of AI agents interacting with real applications — far more compelling than the typical weather API example.
+
+**Potential MCP tools:**
+- `list_items` / `create_item` / `delete_item` — CRUD operations
+- `get_system_info` — retrieve deployment info
+- `post_to_display` — inject content into the display panel
+- `get_recent_logs` — fetch recent request logs
+
+**Use cases:**
+- "Watch Claude manage inventory in a real app"
+- "Show an AI agent reading system state and making decisions"
+- Demo agentic workflows with persistent state
+- MCP server development patterns and best practices
+
+**Design principle:** The MCP server is a *separate* component that talks to demo-app's API. The app itself doesn't know or care that an AI is calling it — same universal design as everything else.
 
 ### Authentication as a Service Provider
 
