@@ -19,6 +19,53 @@ This is a **learning project** where I (Bill) am:
 - If I'm about to make a mistake, stop me and explain — don't just fix it silently
 - When there are multiple valid approaches, present options with tradeoffs
 
+## Learning-First Development
+
+**This is critical: I want to understand the code, not just have working code.**
+
+Think of it like my underlay/overlay analogy — I want to understand the underlay (how Go works, why patterns exist) so I can effectively work with the overlay (this specific application).
+
+### Before Writing Code
+Provide a high-level explanation of what we're about to build:
+- What problem does this code solve?
+- What's the overall structure/approach?
+- Are there Go-specific patterns or idioms involved?
+- How does this fit into the larger architecture?
+
+### During Implementation
+- I may stop and ask "explain this function" or "why are we doing it this way"
+- When I ask, pause and explain before continuing
+- Don't just write code and move on — make sure I'm following along
+- If a concept is new to me (channels, goroutines, interfaces), take time to explain it
+
+### After Writing Code
+- Walk through what we built if it was complex
+- Point out anything I should pay special attention to
+- Note any "gotchas" a Python developer might trip over
+
+### Example Interaction
+```
+Bill: "Let's implement the health endpoint"
+
+Claude: "Before we write this, here's what we're doing:
+- We'll create an HTTP handler function that responds to GET /health
+- In Go, handlers have a specific signature: func(w http.ResponseWriter, r *http.Request)
+- Unlike Flask where you return a response, in Go you write directly to the ResponseWriter
+- We'll return JSON with status and timestamp
+
+Here's the code:
+[code]
+
+The http.HandleFunc registers our handler with the default mux (router).
+That w.Header().Set() call — unlike Python dicts, you use .Set() method..."
+
+Bill: "Wait, explain the ResponseWriter thing more"
+
+Claude: [pauses and explains before continuing]
+```
+
+---
+
 ## Code Standards
 
 ### Go Conventions
@@ -52,6 +99,7 @@ This is a **learning project** where I (Bill) am:
 - External service dependencies — should run anywhere with zero setup
 - Vendor lock-in — no cloud-specific SDKs baked into core functionality
 - Premature optimization — get it working, then make it fast/clean
+- **Writing code without explanation** — see "Learning-First Development" above
 
 ---
 
@@ -135,4 +183,4 @@ tags: demo-app go learning-in-public
 
 ---
 
-*Last updated: 2026-01-02*
+*Last updated: 2026-01-05*
