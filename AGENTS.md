@@ -114,6 +114,23 @@ Bill typically opens Claude CLI from `~/code` so Claude can access multiple repo
 | `~/code/billgrant.github.io` | Blog (Jekyll site) |
 | `~/code/music-graph` | Previous project (Flask, for reference) |
 
+### Development Environment
+
+**OS:** PopOS 24.04
+
+**Tooling:**
+| Tool | Version/Details |
+|------|-----------------|
+| Go | 1.25.5 (official tarball, `/usr/local/go`) |
+| Docker | Docker Engine (official repo) |
+| VS Code | With Go and Claude extensions |
+| gh CLI | GitHub CLI for repo operations |
+| git | System package |
+| make | System package |
+| curl | System package |
+
+**GitHub Auth:** SSH and HTTPS configured
+
 ### Starting a Session
 1. Read `PLAN.md` first — understand current phase and milestones
 2. Read this file (`AGENTS.md`) for collaboration guidelines
@@ -183,4 +200,4 @@ tags: demo-app go learning-in-public
 
 ---
 
-*Last updated: 2026-01-05*
+*Last updated: 2026-01-06*
