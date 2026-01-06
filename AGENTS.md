@@ -96,6 +96,7 @@ Claude: [pauses and explains before continuing]
 ## What to Avoid
 
 - Over-engineering — this is a demo app, not production infrastructure
+- Adding libraries/abstractions prematurely — start with stdlib, add dependencies only when there's a clear need
 - External service dependencies — should run anywhere with zero setup
 - Vendor lock-in — no cloud-specific SDKs baked into core functionality
 - Premature optimization — get it working, then make it fast/clean

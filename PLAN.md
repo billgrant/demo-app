@@ -31,8 +31,8 @@ A self-contained application that:
 | Language | Go | Single binary, fast startup, HashiCorp ecosystem alignment |
 | Database | SQLite | Embedded, no external dependencies, file or in-memory |
 | Frontend | Embedded SPA | Baked into binary, zero file path management |
-| Router | TBD (stdlib or Gin) | Keep it simple |
-| Logging | Structured JSON | Ships to any observability stack |
+| Router | stdlib `net/http` | Learn fundamentals first, add frameworks only if needed |
+| Logging | `log/slog` (JSON) | Stdlib structured logging, no external deps |
 
 ### Core Components
 
@@ -135,10 +135,10 @@ Every request logged as JSON:
 ## Milestones
 
 ### Phase 1: Foundation
-- [ ] Go project structure
-- [ ] Basic HTTP server with health endpoint
+- [x] Go project structure
+- [x] Basic HTTP server with health endpoint
 - [ ] SQLite integration
-- [ ] Structured logging
+- [x] Structured logging
 - [ ] Dockerfile
 
 ### Phase 2: Core API
@@ -209,8 +209,8 @@ The app could optionally act as a SAML SP or OIDC client, enabling demos of iden
 ## Open Questions
 
 - [ ] Frontend framework choice — React (know it), Vue (simpler), vanilla JS (no build step)?
-- [ ] Router choice — stdlib `net/http` or Gin/Echo?
-- [ ] SQLite driver — `modernc.org/sqlite` (pure Go) or `mattn/go-sqlite3` (CGO)?
+- [x] Router choice — stdlib `net/http` (decided: learn fundamentals first)
+- [x] SQLite driver — `modernc.org/sqlite` (decided: pure Go for easier cross-compilation)
 - [ ] How to handle external IP detection reliably across cloud providers?
 
 ---
