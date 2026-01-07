@@ -77,7 +77,32 @@ func initDB(dbPath string) (*sql.DB, error) {
 	return db, nil
 }
 
+// runHealthcheck checks if the server is responding and exits with appropriate code
+func runHealthcheck() {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	resp, err := http.Get("http://localhost:" + port + "/health")
+	if err != nil {
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		os.Exit(0)
+	}
+	os.Exit(1)
+}
+
 func main() {
+	// Healthcheck mode: check if server is responding
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		runHealthcheck()
+		return
+	}
+
 	// Configure structured JSON logging
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
