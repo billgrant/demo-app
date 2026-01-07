@@ -158,11 +158,23 @@ Each phase gets a blog post at https://billgrant.io
 - **Filename format:** `YYYY-MM-DD-title.md`
 - **Tag:** `#demo-app`
 
-### Writing Style
-- Written by Claude with Bill's intro/outro between `*** ***` markers
+### Writing Style & Workflow
+
+**The `*** ***` markers serve two purposes:**
+1. Bill's voice — intro sets context, outro reflects on learnings
+2. **AI transparency disclaimer** — signals to readers that the main content below was written by Claude, not Bill. This is intentional transparency about AI use.
+
+**Workflow:**
+1. Claude drafts the full post using DEVLOG.md session notes
+2. Bill rewrites the intro/outro sections in his own voice
+3. Bill reviews main content, adds screenshots or additional context
+4. Claude spell-checks and grammar-checks Bill's edits
+5. Bill commits and pushes to the blog repo
+
+**Content guidelines:**
 - Documents successes AND failures — the learning journey matters
-- Reflects Bill's actual thinking, enhanced by AI — not purely AI-generated content
 - Include code snippets, decisions made, and lessons learned
+- Main content is Claude's synthesis of the sessions, not purely Bill's writing
 
 ### Jekyll/Template Code in Posts
 When showing Go templates or any curly-brace syntax in blog posts, wrap with raw tags to prevent Jekyll from processing:
