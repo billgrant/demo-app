@@ -134,12 +134,12 @@ Every request logged as JSON:
 
 ## Milestones
 
-### Phase 1: Foundation
+### Phase 1: Foundation ✓
 - [x] Go project structure
 - [x] Basic HTTP server with health endpoint
 - [x] SQLite integration
 - [x] Structured logging
-- [ ] Dockerfile
+- [x] Dockerfile (Docker Hardened Images)
 
 ### Phase 2: Core API
 - [ ] Generic CRUD endpoints (`/api/items`)

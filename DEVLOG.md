@@ -149,13 +149,99 @@ For containerized deployments, the database file needs to live on a mounted volu
 - Dockerfile (last Phase 1 item)
 - Then Phase 2: CRUD endpoints
 
-### Dockerfile Planning Notes
-Want to explore **Docker Hardened Images** (https://www.docker.com/products/hardened-images/) instead of standard base images. Rationale:
+---
 
+## 2026-01-07 — Session 3: Dockerfile with Docker Hardened Images
+
+### What We Built
+- Multi-stage Dockerfile using Docker Hardened Images (DHI)
+- Built-in healthcheck subcommand for Docker HEALTHCHECK
+- Phase 1 complete!
+
+### Docker Hardened Images (DHI)
+
+**Why DHI?**
 1. **Shift-left security** — Start secure, don't fix later
-2. **Clean baseline for security demos** — If demo-app tests a code scanner, a CVE-free base image means any vulnerabilities found are intentional (added for demo purposes)
-3. **Learning opportunity** — Have used Chainguard/distroless before, want to understand Docker's implementation
+2. **Clean baseline for security demos** — CVE-free base means intentional vulnerabilities stand out
+3. **Learning opportunity** — Understand Docker's hardened image implementation
 
-This may add complexity to the Dockerfile phase but fits the project's purpose.
+**Registry & Access:**
+- Registry: `dhi.io`
+- Auth: `docker login dhi.io` (uses Docker Hub credentials)
+- Free tier available, no subscription required
+
+**Images Used:**
+| Stage | Image | Purpose |
+|-------|-------|---------|
+| Build | `dhi.io/golang:1.25-alpine3.22-dev` | Full Go SDK for compilation |
+| Runtime | `dhi.io/static:20250911-alpine3.22` | Minimal static base (~CVE-free) |
+
+### Go Concepts Covered
+
+**`os.Args` — Command Line Arguments**
+```go
+if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+    runHealthcheck()
+    return
+}
+```
+- `os.Args[0]` is the program name
+- `os.Args[1:]` are the arguments
+- Used to add subcommand support without a CLI framework
+
+**Self-contained healthcheck:**
+- Static images have no curl/wget
+- Solution: binary checks itself via HTTP
+- `./demo-app healthcheck` makes request to `localhost:8080/health`
+- Returns exit code 0 (healthy) or 1 (unhealthy)
+
+### Docker Concepts Covered
+
+**Multi-stage builds:**
+- Build stage has full SDK (large)
+- Runtime stage has only the binary (tiny)
+- `COPY --from=build-stage` transfers artifacts between stages
+
+**HEALTHCHECK directive:**
+```dockerfile
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD ["/demo-app", "healthcheck"]
+```
+- Docker runs this periodically
+- Shows in `docker ps` as `(healthy)` or `(unhealthy)`
+
+### Known Quirk: DHI Authentication
+
+**Issue:** Intermittent "pull access denied" errors during build, even when logged in:
+```
+ERROR: failed to build: pull access denied, repository does not exist
+or may require authorization: server message: insufficient_scope
+```
+
+**Workaround:** Run `docker login dhi.io` immediately before building. This seems to refresh the auth token. May be related to DHI being a newer service.
+
+**Commands:**
+```bash
+docker login dhi.io
+docker build -t demo-app .
+docker run --rm -p 8080:8080 demo-app
+```
+
+### Files Changed
+- `Dockerfile` — new file, multi-stage DHI build
+- `main.go` — added `runHealthcheck()` function and subcommand check
+
+### Phase 1 Complete!
+All foundation items done:
+- [x] Go project structure
+- [x] HTTP server with /health
+- [x] Structured logging
+- [x] SQLite integration
+- [x] Dockerfile
+
+### Next Up
+- Phase 2: CRUD endpoints (`/api/items`)
+- Display panel endpoints (`/api/display`)
+- System info endpoint (`/api/system`)
 
 ---
