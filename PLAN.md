@@ -137,7 +137,7 @@ Every request logged as JSON:
 ### Phase 1: Foundation
 - [x] Go project structure
 - [x] Basic HTTP server with health endpoint
-- [ ] SQLite integration
+- [x] SQLite integration
 - [x] Structured logging
 - [ ] Dockerfile
 

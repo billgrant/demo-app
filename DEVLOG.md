@@ -83,3 +83,70 @@ func loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
 - Then Phase 2: CRUD endpoints
 
 ---
+
+## 2026-01-07 — Session 2: SQLite Integration
+
+### What We Built
+- SQLite database integration using `modernc.org/sqlite`
+- `initDB()` function that opens database and creates tables
+- Support for `DB_PATH` environment variable (`:memory:` default, or file path)
+- `items` table ready for Phase 2 CRUD
+
+### Go Concepts Covered
+
+**`database/sql` — The Database Abstraction Layer**
+- Stdlib provides common interface for all databases
+- Drivers implement the interface for specific databases
+- You code to `database/sql`, swap drivers without changing queries
+
+**Underscore Import: `_ "modernc.org/sqlite"`**
+- The `_` means "import for side effects only"
+- Driver's `init()` function registers itself with `database/sql`
+- You never call the driver directly — `sql.Open("sqlite", path)` looks it up
+- Looks weird but is standard Go pattern
+
+**`:=` vs `=` — Declaration vs Assignment**
+- `:=` declares a new variable and infers type
+- `=` assigns to an existing variable
+- Can't use `:=` twice for same variable in same scope
+
+**Error Handling Pattern**
+- Functions that can fail return `(result, error)`
+- Check `if err != nil` immediately after every call
+- No exceptions in Go — errors are values you handle explicitly
+- You'll write `if err != nil` hundreds of times
+
+**`defer` — Cleanup Scheduling**
+- `defer db.Close()` schedules `Close()` to run when function exits
+- Like Python's `with` statement or `finally` block
+- Runs even if function exits due to error (after defer is registered)
+- Belongs to the function it's written in, not the function that's called
+
+**Scope in `if` statements**
+```go
+if err := db.Ping(); err != nil {
+    // err only exists in this block
+}
+```
+
+### "Aha" Moments
+
+1. **Driver registration magic** — The underscore import felt weird until understanding that drivers self-register via `init()`. You import them, they register, `database/sql` finds them by name.
+
+2. **`defer` scope** — It runs when the *surrounding* function exits, not when the called function exits. `defer db.Close()` in `main()` runs when `main()` returns.
+
+3. **Errors are just values** — No try/catch, no exceptions. Every function that can fail returns an error, and you check it. Verbose but explicit.
+
+### Container Consideration
+For containerized deployments, the database file needs to live on a mounted volume to persist. The app creates/uses whatever path `DB_PATH` points to — just mount a volume there.
+
+### Files Changed
+- `go.mod` — added `modernc.org/sqlite` dependency
+- `go.sum` — new file with dependency checksums
+- `main.go` — added `initDB()` function, database initialization in `main()`
+
+### Next Up
+- Dockerfile (last Phase 1 item)
+- Then Phase 2: CRUD endpoints
+
+---
