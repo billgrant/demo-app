@@ -149,4 +149,13 @@ For containerized deployments, the database file needs to live on a mounted volu
 - Dockerfile (last Phase 1 item)
 - Then Phase 2: CRUD endpoints
 
+### Dockerfile Planning Notes
+Want to explore **Docker Hardened Images** (https://www.docker.com/products/hardened-images/) instead of standard base images. Rationale:
+
+1. **Shift-left security** — Start secure, don't fix later
+2. **Clean baseline for security demos** — If demo-app tests a code scanner, a CVE-free base image means any vulnerabilities found are intentional (added for demo purposes)
+3. **Learning opportunity** — Have used Chainguard/distroless before, want to understand Docker's implementation
+
+This may add complexity to the Dockerfile phase but fits the project's purpose.
+
 ---
