@@ -77,7 +77,9 @@ Claude: [pauses and explains before continuing]
 
 ### Documentation
 - Update README.md when adding features
+- **Update README.md status and quick start when completing each phase**
 - Keep PLAN.md current with architectural decisions
+- Add session notes to DEVLOG.md for blog material
 - Add comments explaining "why" for complex logic
 - Include examples in API documentation
 
@@ -201,4 +203,4 @@ tags: demo-app go learning-in-public
 
 ---
 
-*Last updated: 2026-01-06*
+*Last updated: 2026-01-07*
