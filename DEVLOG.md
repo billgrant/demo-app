@@ -245,3 +245,126 @@ All foundation items done:
 - System info endpoint (`/api/system`)
 
 ---
+
+## 2026-01-08 — Session 4: CRUD Endpoints (/api/items)
+
+### What We Built
+- Full CRUD API for `/api/items` endpoint
+- Manual URL routing (no framework)
+- Package-level database variable for handler access
+
+### Go Concepts Covered
+
+**Struct Tags for JSON**
+```go
+type Item struct {
+    ID          int64     `json:"id"`
+    Name        string    `json:"name"`
+    Description string    `json:"description,omitempty"`
+    CreatedAt   time.Time `json:"created_at"`
+}
+```
+- Backtick strings are struct tags — metadata for serialization
+- `omitempty` skips the field if empty
+
+**`:=` vs `=` with Package-Level Variables**
+```go
+var db *sql.DB  // package-level
+
+func main() {
+    db, err := initDB(...)  // WRONG: creates new local db, shadows package-level
+
+    var err error
+    db, err = initDB(...)   // RIGHT: assigns to package-level db
+}
+```
+- `:=` always creates a new variable in current scope
+- To assign to existing variable, use `=`
+
+**Manual Routing (stdlib limitation)**
+```go
+path := strings.TrimPrefix(r.URL.Path, "/api/items")
+path = strings.TrimPrefix(path, "/")
+// /api/items/123 -> "123"
+// /api/items -> ""
+```
+- stdlib `net/http` doesn't support path parameters like `:id`
+- Parse URL manually, route with switch on method
+- This is what router libraries (Gin, Chi) do for you
+
+**Switch Statements**
+```go
+switch r.Method {
+case http.MethodGet:
+    listItems(w, r)
+case http.MethodPost:
+    createItem(w, r)
+default:
+    http.Error(w, "not allowed", 405)
+}
+```
+- Cleaner than if/else chains
+- No fallthrough by default (unlike C)
+
+**Query vs QueryRow vs Exec**
+| Method | Use When |
+|--------|----------|
+| `db.Query()` | Multiple rows — returns `*Rows` to iterate |
+| `db.QueryRow()` | Single row — returns `*Row` to scan once |
+| `db.Exec()` | No rows returned (INSERT, UPDATE, DELETE) |
+
+**Scan with Pointers**
+```go
+rows.Scan(&item.ID, &item.Name, &item.Description, &item.CreatedAt)
+```
+- `Scan` needs pointers so it can write into your variables
+- `&` gives the address (where to write)
+
+### "Aha" Moments
+
+1. **`:=` shadows package variables** — Using `:=` in a function creates a local variable even if a package-level one exists. Must use `=` to assign to existing variables.
+
+2. **Pointers for sharing data** — If a function receives a value (not pointer), it gets a copy with its own address. Changes don't affect the original. Pointers let functions modify the original.
+
+3. **`*` means different things** — In types: "pointer to" (`*Item`). In expressions: "value at" (dereference). Context determines meaning.
+
+### API Endpoints Built
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/items` | List all items |
+| POST | `/api/items` | Create item |
+| GET | `/api/items/:id` | Get single item |
+| PUT | `/api/items/:id` | Update item |
+| DELETE | `/api/items/:id` | Delete item |
+
+### Quick Reference: curl Commands
+```bash
+# List
+curl http://localhost:8080/api/items
+
+# Create
+curl -X POST http://localhost:8080/api/items \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Item Name","description":"Optional"}'
+
+# Get
+curl http://localhost:8080/api/items/1
+
+# Update
+curl -X PUT http://localhost:8080/api/items/1 \
+  -H "Content-Type: application/json" \
+  -d '{"name":"New Name","description":"New desc"}'
+
+# Delete
+curl -X DELETE http://localhost:8080/api/items/1
+```
+
+### Files Changed
+- `main.go` — added Item struct, package-level db, CRUD handlers
+
+### Next Up
+- `/api/display` endpoint (injected demo content)
+- `/api/system` endpoint (hostname, IPs, env vars)
+
+---
