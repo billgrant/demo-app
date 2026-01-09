@@ -224,6 +224,30 @@ The app could optionally act as a SAML SP or OIDC client, enabling demos of iden
 
 **Design principle:** Auth remains optional. The app works without it, but can be configured to require authentication when demoing identity products. Disabled by default, enabled via environment variables pointing to IdP metadata/endpoints.
 
+### Highlights/Key-Values Endpoint
+
+Potential complement to `/api/display` for demos where you want to show:
+- **Display panel:** Full raw output (Vault response, Terraform output, etc.)
+- **Highlights:** Specific extracted values to call attention to
+
+Example flow:
+```bash
+# Post full Vault response to display
+vault kv get -format=json secret/db | curl -X POST -d @- http://app/api/display
+
+# Post just the secret value to highlights
+curl -X POST http://app/api/highlights \
+  -d '{"key": "db_password", "value": "s3cr3t", "source": "vault"}'
+```
+
+Design considerations:
+- In-memory (transient like display) vs persistent (like items)?
+- Flexible key-value pairs, user defines both key and value
+- Could replace or extend `/api/items` with a `metadata` field
+- Or be a separate endpoint entirely (`/api/highlights`, `/api/values`)
+
+**Status:** Idea captured, not yet designed. Revisit after Phase 3 frontend is working.
+
 ### Other Future Ideas
 - WebSocket endpoint for real-time demo scenarios
 - Prometheus metrics endpoint (`/metrics`)
