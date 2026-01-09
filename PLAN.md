@@ -141,17 +141,42 @@ Every request logged as JSON:
 - [x] Structured logging
 - [x] Dockerfile (Docker Hardened Images)
 
-### Phase 2: Core API
-- [ ] Generic CRUD endpoints (`/api/items`)
-- [ ] Display panel endpoints (`/api/display`)
-- [ ] System info endpoint (`/api/system`)
+### Phase 2: Core API ✓
+- [x] Generic CRUD endpoints (`/api/items`)
+- [x] Display panel endpoints (`/api/display`)
+- [x] System info endpoint (`/api/system`)
 
 ### Phase 3: Frontend
-- [ ] Simple SPA (React, Vue, or vanilla JS — TBD)
-- [ ] Embed static files in binary
-- [ ] Display panel rendering
-- [ ] System info panel
-- [ ] Items list/form
+- [ ] Single-page dashboard (vanilla JS, no framework)
+- [ ] Embed static files in binary (`embed` package)
+- [ ] Health panel (status + timestamp, auto-refresh)
+- [ ] System info panel (hostname, IPs, env vars)
+- [ ] Items panel (list, create, edit, delete)
+- [ ] Display panel (pretty-printed JSON, update form)
+
+**Frontend Architecture Decision:**
+- **Vanilla JS** — Same philosophy as stdlib for backend; learn fundamentals first
+- **Single dashboard** — All panels visible at once, no navigation/routing
+- **No build step** — Just HTML, CSS, JS files; no npm, no bundler
+- **Embedded in binary** — Use Go's `embed` package for single-file deployment
+
+**Dashboard Layout:**
+```
+┌─────────────────┬─────────────────┐
+│  Health         │  System Info    │
+│  status: ok     │  hostname: ...  │
+│  timestamp: ... │  ips: [...]     │
+├─────────────────┴─────────────────┤
+│  Items                            │
+│  [+ New Item]                     │
+│  - Item 1        [Edit] [Delete]  │
+│  - Item 2        [Edit] [Delete]  │
+├───────────────────────────────────┤
+│  Display Panel                    │
+│  { "terraform": "output", ... }   │
+│  [Update Display Data]            │
+└───────────────────────────────────┘
+```
 
 ### Phase 4: Polish
 - [ ] Network interface detection
@@ -208,7 +233,7 @@ The app could optionally act as a SAML SP or OIDC client, enabling demos of iden
 
 ## Open Questions
 
-- [ ] Frontend framework choice — React (know it), Vue (simpler), vanilla JS (no build step)?
+- [x] Frontend framework choice — **Vanilla JS** (decided: learn fundamentals, no build step, same philosophy as backend)
 - [x] Router choice — stdlib `net/http` (decided: learn fundamentals first)
 - [x] SQLite driver — `modernc.org/sqlite` (decided: pure Go for easier cross-compilation)
 - [ ] How to handle external IP detection reliably across cloud providers?
