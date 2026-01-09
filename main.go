@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -15,6 +16,9 @@ import (
 
 // Package-level database connection (handlers need access)
 var db *sql.DB
+
+// Package-level display data (in-memory, transient)
+var displayData json.RawMessage
 
 // Item represents a generic item in the database
 type Item struct {
@@ -145,6 +149,8 @@ func main() {
 	http.HandleFunc("/health", loggingMiddleware(healthHandler))
 	http.HandleFunc("/api/items", loggingMiddleware(itemsHandler))
 	http.HandleFunc("/api/items/", loggingMiddleware(itemsHandler)) // trailing slash catches /api/items/:id
+	http.HandleFunc("/api/display", loggingMiddleware(displayHandler))
+	http.HandleFunc("/api/system", loggingMiddleware(systemHandler))
 
 	// Start the server
 	slog.Info("server starting", "port", port)
@@ -342,4 +348,130 @@ func deleteItem(w http.ResponseWriter, r *http.Request, id int64) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// displayHandler handles GET/POST for the display panel
+func displayHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	switch r.Method {
+	case http.MethodGet:
+		getDisplay(w, r)
+	case http.MethodPost:
+		setDisplay(w, r)
+	default:
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+	}
+}
+
+// getDisplay returns the current display data
+func getDisplay(w http.ResponseWriter, r *http.Request) {
+	if displayData == nil {
+		// Return empty object if nothing set
+		w.Write([]byte("{}"))
+		return
+	}
+	w.Write(displayData)
+}
+
+// setDisplay stores arbitrary JSON for display
+func setDisplay(w http.ResponseWriter, r *http.Request) {
+	// Read the raw JSON body
+	var data json.RawMessage
+	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+		http.Error(w, `{"error":"invalid json"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Store it
+	displayData = data
+
+	// Return what we stored
+	w.WriteHeader(http.StatusCreated)
+	w.Write(displayData)
+}
+
+// systemHandler returns system information (GET only)
+func systemHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	// Get hostname
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "unknown"
+	}
+
+	// Get network interfaces and IPs
+	ips := getIPAddresses()
+
+	// Get selected environment variables (safe to expose)
+	envVars := getFilteredEnvVars()
+
+	response := map[string]interface{}{
+		"hostname":    hostname,
+		"ips":         ips,
+		"environment": envVars,
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
+
+// getIPAddresses returns all non-loopback IP addresses
+func getIPAddresses() []string {
+	var ips []string
+
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return ips
+	}
+
+	for _, iface := range interfaces {
+		// Skip loopback and down interfaces
+		if iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+
+		for _, addr := range addrs {
+			// Extract IP from CIDR notation
+			if ipnet, ok := addr.(*net.IPNet); ok {
+				if ipnet.IP.To4() != nil { // IPv4 only for simplicity
+					ips = append(ips, ipnet.IP.String())
+				}
+			}
+		}
+	}
+
+	return ips
+}
+
+// getFilteredEnvVars returns environment variables safe to expose
+func getFilteredEnvVars() map[string]string {
+	// Allowlist of env vars to expose
+	allowed := []string{
+		"PORT",
+		"DB_PATH",
+		"HOSTNAME",      // Set by Docker/K8s
+		"POD_NAME",      // Kubernetes
+		"POD_NAMESPACE", // Kubernetes
+		"NODE_NAME",     // Kubernetes
+		"CONTAINER_ID",  // Docker
+	}
+
+	result := make(map[string]string)
+	for _, key := range allowed {
+		if val := os.Getenv(key); val != "" {
+			result[key] = val
+		}
+	}
+	return result
 }

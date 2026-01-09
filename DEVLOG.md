@@ -368,3 +368,92 @@ curl -X DELETE http://localhost:8080/api/items/1
 - `/api/system` endpoint (hostname, IPs, env vars)
 
 ---
+
+## 2026-01-09 — Session 5: Display & System Endpoints
+
+### What We Built
+- `/api/display` — In-memory storage for arbitrary JSON (demo data injection)
+- `/api/system` — Returns hostname, IPs, and filtered environment variables
+
+### Go Concepts Covered
+
+**`json.RawMessage` — Storing Arbitrary JSON**
+```go
+var displayData json.RawMessage
+```
+- Holds raw JSON bytes without parsing into a specific struct
+- Accepts any valid JSON — objects, arrays, primitives
+- Perfect when you don't know the structure ahead of time
+- Like storing a JSON string in Python, but type-safe
+
+**`map[string]interface{}` — Dynamic Maps**
+```go
+response := map[string]interface{}{
+    "hostname": hostname,
+    "ips":      ips,        // []string
+    "environment": envVars, // map[string]string
+}
+```
+- Map with string keys and any value type
+- Like Python dict — values can be different types
+- Modern Go prefers `any` over `interface{}` (same thing, cleaner syntax)
+
+**`net.Interfaces()` — Network Information**
+```go
+interfaces, err := net.Interfaces()
+for _, iface := range interfaces {
+    if iface.Flags&net.FlagLoopback != 0 {
+        continue // skip loopback
+    }
+    addrs, _ := iface.Addrs()
+    // ...
+}
+```
+- Returns all network interfaces on the system
+- `&` is bitwise AND — checking if flag bit is set
+- Each interface has addresses (IPs) attached
+
+**Type Assertion — Extracting Concrete Types**
+```go
+if ipnet, ok := addr.(*net.IPNet); ok {
+    // ipnet is now usable as *net.IPNet
+}
+```
+- `addr` is an interface (can hold any type)
+- `addr.(*net.IPNet)` tries to extract it as that specific type
+- Returns value and boolean (success/failure)
+- Like Python's `isinstance()` but also does the conversion
+
+**`make()` — Initializing Maps**
+```go
+result := make(map[string]string)
+```
+- Creates an initialized, empty map
+- Required before writing to a map
+- `var m map[string]string` creates a nil map — can't write to it
+- Like needing `m = {}` before `m["key"] = "value"` in Python
+
+### Design Decisions
+
+**Display: In-memory vs Database**
+- Chose in-memory (`json.RawMessage` package variable)
+- Data is transient demo content, doesn't need persistence
+- Simplifies code — no schema needed for arbitrary JSON
+
+**System: Environment Allowlist**
+- Only expose specific env vars, not all
+- `os.Environ()` would leak secrets
+- Allowlist includes: PORT, DB_PATH, HOSTNAME, POD_NAME, etc.
+
+### Files Changed
+- `main.go` — added `net` import, displayHandler, systemHandler, helper functions
+- `AGENTS.md` — documented Go process naming quirk (`pkill main` not `pkill demo-app`)
+- `README.md` — updated status, added API endpoint documentation
+
+### Phase 2 Progress
+- [x] CRUD endpoints (`/api/items`)
+- [x] Display panel (`/api/display`)
+- [x] System info (`/api/system`)
+- [ ] Frontend (Phase 2 remaining)
+
+---

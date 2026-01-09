@@ -134,6 +134,17 @@ Bill typically opens Claude CLI from `~/code` so Claude can access multiple repo
 
 **GitHub Auth:** SSH and HTTPS configured
 
+### Go Process Naming Quirk
+When running `go run main.go`, Go compiles to a temporary binary named after the source file (`main`), NOT the project name. The process will be something like `/tmp/go-build.../main`.
+
+**To kill the dev server:**
+```bash
+pkill main          # kills by process name
+# NOT pkill demo-app  # won't work during development
+```
+
+The `demo-app` name only exists when explicitly built with `go build -o demo-app`.
+
 ### Starting a Session
 1. Read `PLAN.md` first — understand current phase and milestones
 2. Read this file (`AGENTS.md`) for collaboration guidelines
@@ -215,4 +226,4 @@ tags: demo-app go learning-in-public
 
 ---
 
-*Last updated: 2026-01-07*
+*Last updated: 2026-01-09*
