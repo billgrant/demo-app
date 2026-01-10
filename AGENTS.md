@@ -209,12 +209,12 @@ date: YYYY-MM-DD
 tags: demo-app go learning-in-public
 ---
 
-*** Bill's intro — what we set out to do ***
+*** Bill's intro — sets context, what we set out to do ***
 
 [Main content — what happened, code examples, decisions]
-
-*** Bill's reflection — what I learned ***
 ```
+
+Note: Intro only, no outro. The `*** ***` markers signal AI transparency — content below is Claude's synthesis of the sessions.
 
 ---
 
