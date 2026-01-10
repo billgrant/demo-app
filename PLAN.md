@@ -226,11 +226,23 @@ resource "demoapp_display" "status" {
 - [ ] Highlights endpoint (complement to display)
 - [ ] Configuration documentation
 
-### Phase 8: Distribution
-- [ ] GitHub releases with binaries
+### Phase 8: CI/CD
+- [ ] GitHub Actions workflow for CI (build, test, lint on push/PR)
+- [ ] Go vet / staticcheck for code quality
+- [ ] Docker build verification (container starts, /health responds)
+- [ ] Release workflow triggered by git tags
+- [ ] Multi-arch binary builds (linux/mac/windows × amd64/arm64)
+- [ ] Multi-arch Docker image builds
+- [ ] Push to GitHub Container Registry (ghcr.io)
+- [ ] Create GitHub Release with binaries attached
+
+**Why before Distribution:** CI/CD produces the artifacts (binaries, containers). Distribution documents how to consume them. Helm charts reference container images that CI/CD publishes.
+
+### Phase 9: Distribution
+- [ ] GitHub releases with binaries (automated by Phase 8)
 - [ ] Terraform module example
 - [ ] Kubernetes manifest example
-- [ ] Helm chart (optional)
+- [ ] Helm chart
 
 ---
 
