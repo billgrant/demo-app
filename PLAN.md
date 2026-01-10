@@ -146,13 +146,13 @@ Every request logged as JSON:
 - [x] Display panel endpoints (`/api/display`)
 - [x] System info endpoint (`/api/system`)
 
-### Phase 3: Frontend
-- [ ] Single-page dashboard (vanilla JS, no framework)
+### Phase 3: Frontend ✓
+- [x] Single-page dashboard (vanilla JS, no framework)
+- [x] Health panel (status + timestamp, auto-refresh)
+- [x] System info panel (hostname, IPs, env vars)
+- [x] Items panel (list, create, edit, delete)
+- [x] Display panel (pretty-printed JSON, update form)
 - [ ] Embed static files in binary (`embed` package)
-- [ ] Health panel (status + timestamp, auto-refresh)
-- [ ] System info panel (hostname, IPs, env vars)
-- [ ] Items panel (list, create, edit, delete)
-- [ ] Display panel (pretty-printed JSON, update form)
 
 **Frontend Architecture Decision:**
 - **Vanilla JS** — Same philosophy as stdlib for backend; learn fundamentals first
@@ -178,18 +178,59 @@ Every request logged as JSON:
 └───────────────────────────────────┘
 ```
 
-### Phase 4: Polish
-- [ ] Network interface detection
+### Phase 4: Docker & Multi-Arch
+- [ ] Update Dockerfile for embedded static files
+- [ ] Multi-arch builds (amd64 + arm64 for M1 Macs)
+- [ ] Test containerized deployment
+
+### Phase 5: Terraform Provider
+- [ ] Create `terraform-provider-demoapp` repository
+- [ ] Implement provider using `terraform-plugin-framework`
+- [ ] `demoapp_item` resource (CRUD maps to REST API)
+- [ ] `demoapp_display` resource (POST arbitrary JSON)
+- [ ] `demoapp_highlight` resource (if highlights endpoint exists)
+- [ ] Provider documentation
+
+**Provider Concept:**
+```hcl
+provider "demoapp" {
+  endpoint = "http://localhost:8080"
+}
+
+resource "demoapp_item" "example" {
+  name        = "Provisioned by Terraform"
+  description = "Created at ${timestamp()}"
+}
+
+resource "demoapp_display" "status" {
+  data = jsonencode({
+    provisioned_by = "terraform"
+    region         = var.region
+  })
+}
+```
+
+### Phase 6: Demo-for-the-Demo
+- [ ] Reference Terraform configuration
+- [ ] Provisions something simple + demo-app
+- [ ] Uses `terraform-provider-demoapp` to populate data
+- [ ] Documentation showing the full flow
+- [ ] Potentially separate repo: `demo-app-examples/`
+
+**Purpose:** Show how to use demo-app in real demos. The "demo of the demo app."
+
+### Phase 7: Polish
 - [ ] External IP detection
 - [ ] Request header display
 - [ ] Environment variable filtering
+- [ ] Highlights endpoint (complement to display)
 - [ ] Configuration documentation
 
-### Phase 5: Distribution
-- [ ] Multi-arch Docker builds
+### Phase 8: Distribution
 - [ ] GitHub releases with binaries
 - [ ] Terraform module example
 - [ ] Kubernetes manifest example
+- [ ] Helm chart (optional)
 
 ---
 
