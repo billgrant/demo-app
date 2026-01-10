@@ -457,3 +457,104 @@ result := make(map[string]string)
 - [ ] Frontend (Phase 2 remaining)
 
 ---
+
+## 2026-01-09 — Session 6: Frontend Dashboard
+
+### What We Built
+- Single-page dashboard with four panels (Health, System, Items, Display)
+- Vanilla JavaScript — no frameworks, no build step
+- Static file serving from Go
+
+### File Structure
+```
+static/
+  index.html    # Page structure, panel containers
+  style.css     # Dark theme dashboard layout (CSS Grid)
+  app.js        # All JavaScript — API calls, rendering, modals
+```
+
+### JavaScript Concepts Covered
+
+**`async/await` — Modern Asynchronous Code**
+```javascript
+async function fetchHealth() {
+    const response = await fetch('/health');
+    return await response.json();
+}
+```
+- `async` marks function as asynchronous
+- `await` pauses until Promise resolves
+- Cleaner than callback chains or `.then()`
+
+**`fetch()` — Browser's HTTP Client**
+- Built-in function to make HTTP requests
+- Returns a Promise
+- Same as curl, just from JavaScript
+
+**DOM Manipulation**
+```javascript
+const container = document.getElementById('health-content');
+container.innerHTML = `<div>${data.status}</div>`;
+```
+- `getElementById` finds elements by their `id` attribute
+- `innerHTML` sets the HTML content inside an element
+- Template literals (backticks) allow variable interpolation
+
+**Event Listeners**
+```javascript
+document.getElementById('add-item-btn').addEventListener('click', handleAddItem);
+```
+- Attach functions to run when events happen (click, load, etc.)
+- Arrow functions `() => {}` as callbacks
+
+**`setInterval()` — Repeated Execution**
+```javascript
+setInterval(refreshHealth, 10000);  // every 10 seconds
+```
+- Runs a function repeatedly at specified interval
+- Used for auto-refreshing health panel
+
+### Go Changes
+
+**Serving Static Files**
+```go
+http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+```
+- `http.FileServer` serves files from a directory
+- `http.StripPrefix` removes URL prefix before looking up file
+
+**Root Redirect**
+```go
+http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+    if r.URL.Path == "/" {
+        http.Redirect(w, r, "/static/index.html", http.StatusFound)
+        return
+    }
+    http.NotFound(w, r)
+})
+```
+
+### Key Insight: Frontend-Backend Separation
+
+The browser (JavaScript) and server (Go) are completely decoupled:
+- JS makes HTTP requests to API endpoints
+- Go returns JSON responses
+- They don't know anything about each other's implementation
+- Could run on different machines, be written in different languages
+- This is why REST APIs are universal interfaces between services
+
+### Files Changed
+- `static/index.html` — new file, page structure
+- `static/style.css` — new file, dark theme dashboard
+- `static/app.js` — new file, all JavaScript logic
+- `main.go` — added static file serving and root redirect
+
+### Phase 3 Progress
+- [x] Single-page dashboard (vanilla JS)
+- [x] Health panel (auto-refresh)
+- [x] System info panel
+- [x] Items panel with CRUD
+- [x] Display panel
+- [ ] Embed static files in binary
+
+---

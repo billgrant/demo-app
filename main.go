@@ -152,6 +152,18 @@ func main() {
 	http.HandleFunc("/api/display", loggingMiddleware(displayHandler))
 	http.HandleFunc("/api/system", loggingMiddleware(systemHandler))
 
+	// Serve static files
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+
+	// Redirect root to dashboard
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			http.Redirect(w, r, "/static/index.html", http.StatusFound)
+			return
+		}
+		http.NotFound(w, r)
+	})
+
 	// Start the server
 	slog.Info("server starting", "port", port)
 	err = http.ListenAndServe(":"+port, nil)

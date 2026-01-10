@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo App</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>Demo App</h1>
+    </header>
+
+    <main class="dashboard">
+        <!-- Top row: Health + System Info -->
+        <section class="panel" id="health-panel">
+            <h2>Health</h2>
+            <div class="panel-content" id="health-content">
+                Loading...
+            </div>
+        </section>
+
+        <section class="panel" id="system-panel">
+            <h2>System Info</h2>
+            <div class="panel-content" id="system-content">
+                Loading...
+            </div>
+        </section>
+
+        <!-- Items panel -->
+        <section class="panel panel-wide" id="items-panel">
+            <h2>Items</h2>
+            <div class="panel-actions">
+                <button id="add-item-btn">+ New Item</button>
+            </div>
+            <div class="panel-content" id="items-content">
+                Loading...
+            </div>
+        </section>
+
+        <!-- Display panel -->
+        <section class="panel panel-wide" id="display-panel">
+            <h2>Display Panel</h2>
+            <div class="panel-actions">
+                <button id="update-display-btn">Update Display Data</button>
+            </div>
+            <div class="panel-content" id="display-content">
+                Loading...
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
