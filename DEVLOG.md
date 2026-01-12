@@ -621,3 +621,54 @@ All frontend items done:
 - [x] Static files embedded in binary
 
 ---
+
+## 2026-01-12 — Session 8: Docker & Multi-Arch
+
+### What We Built
+- Updated Dockerfile for embedded static files
+- Added multi-arch build support (amd64 + arm64)
+- Tested containerized deployment
+
+### Dockerfile Changes
+
+**Copy static files for embedding:**
+```dockerfile
+COPY static/ ./static/
+```
+
+**Multi-arch support with buildx:**
+```dockerfile
+ARG TARGETOS TARGETARCH
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build -o /demo-app
+```
+- `TARGETOS` and `TARGETARCH` are set automatically by `docker buildx`
+- Defaults to `linux/amd64` for regular `docker build`
+
+### Docker Buildx Setup
+
+**Install QEMU for cross-platform emulation:**
+```bash
+docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+```
+
+**Create multi-arch builder:**
+```bash
+docker buildx create --name multiarch --driver docker-container --bootstrap --use
+```
+
+**Build for multiple platforms:**
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 -t demo-app:multiarch .
+```
+
+### Notes
+- Local multi-arch builds via QEMU emulation are slow
+- Production builds will use CI/CD with native arm64 runners (Phase 8)
+- The Dockerfile is ready, just needs the right build environment
+
+### Files Changed
+- `Dockerfile` — added static folder copy, TARGETOS/TARGETARCH args
+
+### Phase 4 Complete ✓
+
+---

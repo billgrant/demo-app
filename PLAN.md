@@ -178,10 +178,12 @@ Every request logged as JSON:
 └───────────────────────────────────┘
 ```
 
-### Phase 4: Docker & Multi-Arch
-- [ ] Update Dockerfile for embedded static files
-- [ ] Multi-arch builds (amd64 + arm64 for M1 Macs)
-- [ ] Test containerized deployment
+### Phase 4: Docker & Multi-Arch ✓
+- [x] Update Dockerfile for embedded static files
+- [x] Multi-arch builds (amd64 + arm64 for M1 Macs)
+- [x] Test containerized deployment
+
+**Note:** Full multi-arch builds will run in CI/CD (Phase 8) using GitHub Actions with native runners. Local buildx with QEMU emulation works but is slow.
 
 ### Phase 5: Terraform Provider
 - [ ] Create `terraform-provider-demoapp` repository
