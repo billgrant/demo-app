@@ -8,8 +8,11 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY *.go ./
+COPY static/ ./static/
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /demo-app
+# Build for the target architecture (set by docker buildx)
+ARG TARGETOS TARGETARCH
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build -o /demo-app
 
 ## -----------------------------------------------------
 ## Runtime stage: minimal hardened image
