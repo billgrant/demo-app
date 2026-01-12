@@ -2,7 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"embed"
 	"encoding/json"
+	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
@@ -13,6 +15,9 @@ import (
 
 	_ "modernc.org/sqlite" // SQLite driver (registers itself with database/sql)
 )
+
+//go:embed static/*
+var staticFiles embed.FS
 
 // Package-level database connection (handlers need access)
 var db *sql.DB
@@ -152,8 +157,13 @@ func main() {
 	http.HandleFunc("/api/display", loggingMiddleware(displayHandler))
 	http.HandleFunc("/api/system", loggingMiddleware(systemHandler))
 
-	// Serve static files
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	// Serve embedded static files
+	staticFS, err := fs.Sub(staticFiles, "static")
+	if err != nil {
+		slog.Error("failed to create static file system", "error", err)
+		os.Exit(1)
+	}
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 
 	// Redirect root to dashboard
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
