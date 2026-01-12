@@ -555,6 +555,69 @@ The browser (JavaScript) and server (Go) are completely decoupled:
 - [x] System info panel
 - [x] Items panel with CRUD
 - [x] Display panel
-- [ ] Embed static files in binary
+- [x] Embed static files in binary
+
+---
+
+## 2026-01-12 — Session 7: Embed Static Files
+
+### What We Built
+- Embedded static files into the Go binary using `embed` package
+- Binary is now fully self-contained (15MB)
+- Can run from any directory without needing the static folder
+
+### Go Concepts Covered
+
+**`//go:embed` Directive**
+```go
+//go:embed static/*
+var staticFiles embed.FS
+```
+- Compiler directive (not a regular comment)
+- Tells Go to embed files matching the pattern at build time
+- Files become part of the binary itself
+
+**`embed.FS` — Embedded File System**
+- Implements `fs.FS` interface
+- Read-only file system backed by embedded data
+- Preserves directory structure (files at `static/index.html`)
+
+**`fs.Sub` — Sub-Filesystem**
+```go
+staticFS, err := fs.Sub(staticFiles, "static")
+```
+- Creates a new filesystem rooted at a subdirectory
+- Needed because embed preserves full paths
+- After `fs.Sub`, files are at `index.html` not `static/index.html`
+
+### The Change
+```go
+// Before: reads from disk
+http.FileServer(http.Dir("static"))
+
+// After: reads from embedded files
+staticFS, _ := fs.Sub(staticFiles, "static")
+http.FileServer(http.FS(staticFS))
+```
+
+### Testing
+```bash
+# Build
+go build -o demo-app
+
+# Copy to /tmp (no static folder)
+cp demo-app /tmp/
+cd /tmp
+./demo-app  # Dashboard works!
+```
+
+### Files Changed
+- `main.go` — added `embed` and `io/fs` imports, `//go:embed` directive, changed file server
+
+### Phase 3 Complete ✓
+All frontend items done:
+- [x] Single-page dashboard
+- [x] All four panels working
+- [x] Static files embedded in binary
 
 ---

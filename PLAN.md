@@ -152,7 +152,7 @@ Every request logged as JSON:
 - [x] System info panel (hostname, IPs, env vars)
 - [x] Items panel (list, create, edit, delete)
 - [x] Display panel (pretty-printed JSON, update form)
-- [ ] Embed static files in binary (`embed` package)
+- [x] Embed static files in binary (`embed` package)
 
 **Frontend Architecture Decision:**
 - **Vanilla JS** — Same philosophy as stdlib for backend; learn fundamentals first
