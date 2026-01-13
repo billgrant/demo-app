@@ -34,6 +34,15 @@ A self-contained application that:
 | Router | stdlib `net/http` | Learn fundamentals first, add frameworks only if needed |
 | Logging | `log/slog` (JSON) | Stdlib structured logging, no external deps |
 
+### Development Requirements
+
+| Tool | Purpose | Installation |
+|------|---------|--------------|
+| Go 1.23+ | Build demo-app and provider | [golang.org](https://golang.org/dl/) |
+| Terraform 1.0+ | Test provider locally | `apt` via [HashiCorp repo](https://www.hashicorp.com/official-packaging-guide) |
+| Docker | Container builds | Standard installation |
+| GoReleaser | Provider releases | `go install github.com/goreleaser/goreleaser@latest` |
+
 ### Core Components
 
 ```
@@ -185,13 +194,13 @@ Every request logged as JSON:
 
 **Note:** Full multi-arch builds will run in CI/CD (Phase 8) using GitHub Actions with native runners. Local buildx with QEMU emulation works but is slow.
 
-### Phase 5: Terraform Provider
-- [ ] Create `terraform-provider-demoapp` repository
-- [ ] Implement provider using `terraform-plugin-framework`
-- [ ] `demoapp_item` resource (CRUD maps to REST API)
-- [ ] `demoapp_display` resource (POST arbitrary JSON)
-- [ ] `demoapp_highlight` resource (if highlights endpoint exists)
-- [ ] Provider documentation
+### Phase 5: Terraform Provider ✓
+- [x] Create `terraform-provider-demoapp` repository
+- [x] Implement provider using `terraform-plugin-framework`
+- [x] `demoapp_item` resource (CRUD maps to REST API)
+- [x] `demoapp_display` resource (POST arbitrary JSON)
+- [x] Provider documentation (README, docs/ for registry)
+- [x] GoReleaser config for automated releases
 
 **Provider Concept:**
 ```hcl
@@ -237,6 +246,9 @@ resource "demoapp_display" "status" {
 - [ ] Multi-arch Docker image builds
 - [ ] Push to GitHub Container Registry (ghcr.io)
 - [ ] Create GitHub Release with binaries attached
+- [ ] Terraform provider: GPG signing setup
+- [ ] Terraform provider: GitHub Actions release workflow
+- [ ] Terraform provider: Publish to registry.terraform.io
 
 **Why before Distribution:** CI/CD produces the artifacts (binaries, containers). Distribution documents how to consume them. Helm charts reference container images that CI/CD publishes.
 
