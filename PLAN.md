@@ -231,6 +231,7 @@ resource "demoapp_display" "status" {
 **Purpose:** Show how to use demo-app in real demos. The "demo of the demo app."
 
 ### Phase 7: Polish
+- [ ] SQLite concurrency fix (WAL mode + busy timeout for parallel Terraform operations)
 - [ ] External IP detection
 - [ ] Request header display
 - [ ] Environment variable filtering
