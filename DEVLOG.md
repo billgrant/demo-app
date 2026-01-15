@@ -672,3 +672,104 @@ docker buildx build --platform linux/amd64,linux/arm64 -t demo-app:multiarch .
 ### Phase 4 Complete ✓
 
 ---
+
+## 2026-01-15 — Session 9: BadgerDB Refactor & Demo Examples
+
+### What We Built
+- Replaced SQLite with BadgerDB for concurrent write support
+- Created `demo-app-examples` repo with baseline Terraform demo
+- Single `terraform apply` that provisions container AND populates data
+
+### Why BadgerDB?
+
+**The Problem:**
+SQLite's in-memory mode (`:memory:`) doesn't support concurrent writes. When Terraform creates multiple resources in parallel, SQLite returns "database is locked" errors.
+
+**Options Considered:**
+1. SQLite WAL mode — doesn't work with `:memory:`
+2. File-based SQLite — inconsistent experience between binary/container
+3. **BadgerDB** — K/V store with native concurrent write support
+
+**Decision:** BadgerDB gives consistent ephemeral behavior everywhere while supporting parallel Terraform operations.
+
+### Go Concepts Covered
+
+**K/V Database Pattern**
+```go
+// SQL: rows and columns
+db.Query("SELECT * FROM items WHERE id = ?", id)
+
+// K/V: keys and values
+txn.Get([]byte("item:1"))  // returns JSON blob
+```
+- Data stored as `key → JSON blob`
+- No schema, no migrations
+- Simpler for our use case
+
+**BadgerDB Transactions**
+```go
+// Read-only (concurrent safe)
+db.View(func(txn *badger.Txn) error {
+    item, _ := txn.Get(key)
+    return item.Value(func(val []byte) error {
+        return json.Unmarshal(val, &result)
+    })
+})
+
+// Read-write
+db.Update(func(txn *badger.Txn) error {
+    return txn.Set(key, value)
+})
+```
+- `View()` for reads — multiple can run concurrently
+- `Update()` for writes — serialized but fast
+- Callback pattern ensures cleanup
+
+**Sequences for Auto-Increment IDs**
+```go
+itemSeq, _ := db.GetSequence([]byte("seq:items"), 100)
+id, _ := itemSeq.Next()  // atomic, concurrent-safe
+```
+- Replaces SQL's `AUTOINCREMENT`
+- Pre-allocates IDs in batches for performance
+
+**Iterator with Prefix**
+```go
+prefix := []byte("item:")
+for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+    // process each item
+}
+```
+- Replaces `SELECT * FROM items`
+- Scans all keys with matching prefix
+
+### Baseline Demo Architecture
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  Docker         │     │  HTTP           │     │  DemoApp        │
+│  Provider       │────►│  Provider       │────►│  Provider       │
+│                 │     │  (data source)  │     │                 │
+│  Creates        │     │  Fetches from   │     │  Posts to       │
+│  container      │     │  /api/system    │     │  /api/display   │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
+
+**Key Design Decision:** `lifecycle { ignore_changes = [data] }` on the display resource. Terraform is the persistence layer — if app crashes, `terraform apply` restores the same data, not new data that might have changed.
+
+### Files Changed
+- `main.go` — replaced SQLite with BadgerDB (~100 lines changed)
+- `go.mod` / `go.sum` — new dependency
+- `PLAN.md` — Phase 6 complete, tech stack updated
+- New repo: `demo-app-examples/baseline/`
+
+### Testing Results
+
+| Test | Before (SQLite) | After (BadgerDB) |
+|------|-----------------|------------------|
+| 10 parallel creates | 2 failures | All succeed |
+| `-parallelism=1` needed | Yes | No |
+
+### Phase 6 Complete ✓
+
+---

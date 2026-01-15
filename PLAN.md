@@ -29,7 +29,7 @@ A self-contained application that:
 | Component | Choice | Rationale |
 |-----------|--------|----------|
 | Language | Go | Single binary, fast startup, HashiCorp ecosystem alignment |
-| Database | SQLite | Embedded, no external dependencies, file or in-memory |
+| Database | BadgerDB | Embedded K/V store, concurrent writes, in-memory or file |
 | Frontend | Embedded SPA | Baked into binary, zero file path management |
 | Router | stdlib `net/http` | Learn fundamentals first, add frameworks only if needed |
 | Logging | `log/slog` (JSON) | Stdlib structured logging, no external deps |
@@ -146,7 +146,7 @@ Every request logged as JSON:
 ### Phase 1: Foundation ✓
 - [x] Go project structure
 - [x] Basic HTTP server with health endpoint
-- [x] SQLite integration
+- [x] ~~SQLite~~ BadgerDB integration (changed in Phase 6)
 - [x] Structured logging
 - [x] Dockerfile (Docker Hardened Images)
 
@@ -375,7 +375,7 @@ Design considerations:
 
 - [x] Frontend framework choice — **Vanilla JS** (decided: learn fundamentals, no build step, same philosophy as backend)
 - [x] Router choice — stdlib `net/http` (decided: learn fundamentals first)
-- [x] SQLite driver — `modernc.org/sqlite` (decided: pure Go for easier cross-compilation)
+- [x] ~~SQLite driver~~ — Switched to **BadgerDB** in Phase 6 for concurrent write support
 - [ ] How to handle external IP detection reliably across cloud providers?
 
 ---
