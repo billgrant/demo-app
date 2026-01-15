@@ -1,9 +1,9 @@
 package main
 
 import (
-	"database/sql"
 	"embed"
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net"
@@ -13,14 +13,21 @@ import (
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite" // SQLite driver (registers itself with database/sql)
+	badger "github.com/dgraph-io/badger/v4"
 )
+
+// Key prefix for items in BadgerDB
+// All item keys look like: "item:1", "item:2", etc.
+const itemKeyPrefix = "item:"
 
 //go:embed static/*
 var staticFiles embed.FS
 
 // Package-level database connection (handlers need access)
-var db *sql.DB
+var db *badger.DB
+
+// Sequence for auto-incrementing item IDs
+var itemSeq *badger.Sequence
 
 // Package-level display data (in-memory, transient)
 var displayData json.RawMessage
@@ -71,27 +78,27 @@ func loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// initDB opens the SQLite database and creates tables
-func initDB(dbPath string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		return nil, err
+// initStore opens the BadgerDB database
+// dbPath can be:
+//   - empty string or ":memory:" for in-memory (ephemeral)
+//   - a directory path for persistent storage
+func initStore(dbPath string) (*badger.DB, error) {
+	var opts badger.Options
+
+	// Determine if we're using in-memory or file-based storage
+	if dbPath == "" || dbPath == ":memory:" {
+		// In-memory mode: fast, ephemeral, supports concurrent writes
+		opts = badger.DefaultOptions("").WithInMemory(true)
+	} else {
+		// File-based mode: persistent, data survives restarts
+		opts = badger.DefaultOptions(dbPath)
 	}
 
-	// Verify connection works
-	if err := db.Ping(); err != nil {
-		return nil, err
-	}
+	// Reduce logging noise from BadgerDB (it's verbose by default)
+	opts = opts.WithLoggingLevel(badger.WARNING)
 
-	// Create items table for Phase 2 CRUD
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS items (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL,
-			description TEXT,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		)
-	`)
+	// Open the database
+	db, err := badger.Open(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -142,13 +149,29 @@ func main() {
 
 	// Initialize database (assigns to package-level var)
 	var err error
-	db, err = initDB(dbPath)
+	db, err = initStore(dbPath)
 	if err != nil {
 		slog.Error("failed to initialize database", "error", err)
 		os.Exit(1)
 	}
 	defer db.Close()
-	slog.Info("database initialized", "path", dbPath)
+
+	// Initialize the sequence for auto-incrementing item IDs
+	// The "100" is the bandwidth - it pre-allocates 100 IDs at a time for performance
+	// This is safe for concurrent access
+	itemSeq, err = db.GetSequence([]byte("seq:items"), 100)
+	if err != nil {
+		slog.Error("failed to initialize item sequence", "error", err)
+		os.Exit(1)
+	}
+	defer itemSeq.Release()
+
+	// Determine mode for logging
+	mode := "in-memory"
+	if dbPath != "" && dbPath != ":memory:" {
+		mode = "file"
+	}
+	slog.Info("database initialized", "path", dbPath, "mode", mode, "engine", "badger")
 
 	// Register endpoints with logging middleware
 	http.HandleFunc("/health", loggingMiddleware(healthHandler))
@@ -236,22 +259,45 @@ func itemsHandler(w http.ResponseWriter, r *http.Request) {
 
 // listItems returns all items
 func listItems(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("SELECT id, name, description, created_at FROM items ORDER BY created_at DESC")
+	items := []Item{}
+
+	// db.View() starts a read-only transaction
+	// This is safe for concurrent access - multiple readers can run simultaneously
+	err := db.View(func(txn *badger.Txn) error {
+		// Create an iterator with default options
+		opts := badger.DefaultIteratorOptions
+		// PrefetchValues = true means we want the values, not just keys
+		opts.PrefetchValues = true
+
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		// Seek to the first key with our prefix, then iterate while prefix matches
+		prefix := []byte(itemKeyPrefix)
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+
+			// Get the value (the JSON blob)
+			err := item.Value(func(val []byte) error {
+				var i Item
+				if err := json.Unmarshal(val, &i); err != nil {
+					slog.Error("failed to unmarshal item", "error", err)
+					return nil // Skip malformed items, don't fail the whole list
+				}
+				items = append(items, i)
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
 	if err != nil {
-		slog.Error("failed to query items", "error", err)
+		slog.Error("failed to list items", "error", err)
 		http.Error(w, `{"error":"database error"}`, http.StatusInternalServerError)
 		return
-	}
-	defer rows.Close()
-
-	items := []Item{}
-	for rows.Next() {
-		var item Item
-		if err := rows.Scan(&item.ID, &item.Name, &item.Description, &item.CreatedAt); err != nil {
-			slog.Error("failed to scan item", "error", err)
-			continue
-		}
-		items = append(items, item)
 	}
 
 	json.NewEncoder(w).Encode(items)
@@ -274,21 +320,41 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := db.Exec("INSERT INTO items (name, description) VALUES (?, ?)", input.Name, input.Description)
+	// Get next ID from the sequence
+	// This is atomic and safe for concurrent access
+	id, err := itemSeq.Next()
 	if err != nil {
-		slog.Error("failed to insert item", "error", err)
+		slog.Error("failed to get next item ID", "error", err)
 		http.Error(w, `{"error":"database error"}`, http.StatusInternalServerError)
 		return
 	}
 
-	id, _ := result.LastInsertId()
+	// Create the item
+	item := Item{
+		ID:          int64(id),
+		Name:        input.Name,
+		Description: input.Description,
+		CreatedAt:   time.Now().UTC(),
+	}
 
-	// Fetch the created item to return it
-	var item Item
-	err = db.QueryRow("SELECT id, name, description, created_at FROM items WHERE id = ?", id).
-		Scan(&item.ID, &item.Name, &item.Description, &item.CreatedAt)
+	// Serialize to JSON
+	value, err := json.Marshal(item)
 	if err != nil {
-		slog.Error("failed to fetch created item", "error", err)
+		slog.Error("failed to marshal item", "error", err)
+		http.Error(w, `{"error":"database error"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Build the key: "item:1", "item:2", etc.
+	key := []byte(fmt.Sprintf("%s%d", itemKeyPrefix, id))
+
+	// db.Update() starts a read-write transaction
+	// Multiple Update transactions are serialized, but this is fast for K/V operations
+	err = db.Update(func(txn *badger.Txn) error {
+		return txn.Set(key, value)
+	})
+	if err != nil {
+		slog.Error("failed to insert item", "error", err)
 		http.Error(w, `{"error":"database error"}`, http.StatusInternalServerError)
 		return
 	}
@@ -299,11 +365,21 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 
 // getItem returns a single item by ID
 func getItem(w http.ResponseWriter, r *http.Request, id int64) {
+	key := []byte(fmt.Sprintf("%s%d", itemKeyPrefix, id))
 	var item Item
-	err := db.QueryRow("SELECT id, name, description, created_at FROM items WHERE id = ?", id).
-		Scan(&item.ID, &item.Name, &item.Description, &item.CreatedAt)
 
-	if err == sql.ErrNoRows {
+	err := db.View(func(txn *badger.Txn) error {
+		dbItem, err := txn.Get(key)
+		if err != nil {
+			return err // Will be badger.ErrKeyNotFound if not exists
+		}
+
+		return dbItem.Value(func(val []byte) error {
+			return json.Unmarshal(val, &item)
+		})
+	})
+
+	if err == badger.ErrKeyNotFound {
 		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
 		return
 	}
@@ -333,39 +409,78 @@ func updateItem(w http.ResponseWriter, r *http.Request, id int64) {
 		return
 	}
 
-	result, err := db.Exec("UPDATE items SET name = ?, description = ? WHERE id = ?", input.Name, input.Description, id)
+	key := []byte(fmt.Sprintf("%s%d", itemKeyPrefix, id))
+	var item Item
+
+	// Update is a read-modify-write operation, all in one transaction
+	err := db.Update(func(txn *badger.Txn) error {
+		// First, read the existing item
+		dbItem, err := txn.Get(key)
+		if err != nil {
+			return err // badger.ErrKeyNotFound if doesn't exist
+		}
+
+		// Get current value and unmarshal
+		err = dbItem.Value(func(val []byte) error {
+			return json.Unmarshal(val, &item)
+		})
+		if err != nil {
+			return err
+		}
+
+		// Update fields (preserve CreatedAt and ID)
+		item.Name = input.Name
+		item.Description = input.Description
+
+		// Marshal and save
+		value, err := json.Marshal(item)
+		if err != nil {
+			return err
+		}
+
+		return txn.Set(key, value)
+	})
+
+	if err == badger.ErrKeyNotFound {
+		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
+		return
+	}
 	if err != nil {
 		slog.Error("failed to update item", "error", err)
 		http.Error(w, `{"error":"database error"}`, http.StatusInternalServerError)
 		return
 	}
 
-	rowsAffected, _ := result.RowsAffected()
-	if rowsAffected == 0 {
-		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
-		return
-	}
-
-	// Fetch and return the updated item
-	var item Item
-	db.QueryRow("SELECT id, name, description, created_at FROM items WHERE id = ?", id).
-		Scan(&item.ID, &item.Name, &item.Description, &item.CreatedAt)
-
 	json.NewEncoder(w).Encode(item)
 }
 
 // deleteItem removes an item by ID
 func deleteItem(w http.ResponseWriter, r *http.Request, id int64) {
-	result, err := db.Exec("DELETE FROM items WHERE id = ?", id)
+	key := []byte(fmt.Sprintf("%s%d", itemKeyPrefix, id))
+
+	// First check if the item exists (for proper 404 handling)
+	err := db.View(func(txn *badger.Txn) error {
+		_, err := txn.Get(key)
+		return err
+	})
+
+	if err == badger.ErrKeyNotFound {
+		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
+		return
+	}
 	if err != nil {
-		slog.Error("failed to delete item", "error", err)
+		slog.Error("failed to check item existence", "error", err)
 		http.Error(w, `{"error":"database error"}`, http.StatusInternalServerError)
 		return
 	}
 
-	rowsAffected, _ := result.RowsAffected()
-	if rowsAffected == 0 {
-		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
+	// Item exists, delete it
+	err = db.Update(func(txn *badger.Txn) error {
+		return txn.Delete(key)
+	})
+	if err != nil {
+		slog.Error("failed to delete item", "error", err)
+		http.Error(w, `{"error":"database error"}`, http.StatusInternalServerError)
 		return
 	}
 

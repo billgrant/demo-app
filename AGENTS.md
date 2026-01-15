@@ -66,6 +66,24 @@ Claude: [pauses and explains before continuing]
 
 ---
 
+## Project Documentation Structure
+
+Documentation is spread across repos with specific purposes:
+
+| File | Location | Purpose |
+|------|----------|---------|
+| `PLAN.md` | demo-app repo | Master roadmap, phases, architectural decisions |
+| `DEVLOG.md` | Each repo | Session logs, concepts explained, debugging notes |
+| `AGENTS.md` | demo-app repo | AI collaboration guidelines (this file) |
+| `README.md` | Each repo | User-facing documentation |
+
+**Why this structure:**
+- **PLAN.md is the single source of truth** for what's planned and decided
+- **DEVLOG.md captures the journey** — useful for blog posts and understanding past decisions
+- **AGENTS.md stays in demo-app** since it's the "hub" project; other repos inherit these guidelines
+
+---
+
 ## Code Standards
 
 ### Go Conventions
@@ -113,7 +131,9 @@ Bill typically opens Claude CLI from `~/code` so Claude can access multiple repo
 ### Key Paths
 | Path | Contents |
 |------|----------|
-| `~/code/demo-app` | This project |
+| `~/code/demo-app` | Main application |
+| `~/code/terraform-provider-demoapp` | Terraform provider |
+| `~/code/demo-app-examples` | Demo library (Phase 6+) |
 | `~/code/billgrant.github.io` | Blog (Jekyll site) |
 | `~/code/music-graph` | Previous project (Flask, for reference) |
 
@@ -226,4 +246,4 @@ Note: Intro only, no outro. The `*** ***` markers signal AI transparency — con
 
 ---
 
-*Last updated: 2026-01-09*
+*Last updated: 2026-01-14*

@@ -221,17 +221,36 @@ resource "demoapp_display" "status" {
 }
 ```
 
-### Phase 6: Demo-for-the-Demo
-- [ ] Reference Terraform configuration
-- [ ] Provisions something simple + demo-app
-- [ ] Uses `terraform-provider-demoapp` to populate data
-- [ ] Documentation showing the full flow
-- [ ] Potentially separate repo: `demo-app-examples/`
+### Phase 6: Demo-for-the-Demo ✓
+- [x] **Concurrency fix** — Replaced SQLite with BadgerDB (K/V store with native concurrent write support)
+- [x] Create `demo-app-examples/` repo
+- [x] Baseline demo: Docker provider + demoapp provider + http provider
+- [x] Single `terraform apply` provisions container AND populates data
+- [x] Documentation showing the full flow
 
 **Purpose:** Show how to use demo-app in real demos. The "demo of the demo app."
 
+**Database Change:** Originally planned SQLite WAL mode fix, but switched to BadgerDB for better concurrency and consistent behavior across in-memory/file modes.
+
+**Future Improvement:** Once container images are published to ghcr.io (Phase 8), refactor baseline demo to pull from registry instead of requiring local build. Goal: `git clone` → `terraform init` → `terraform apply` with no prerequisites.
+
+**Demo Architecture:**
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  Docker         │     │  HTTP           │     │  DemoApp        │
+│  Provider       │────►│  Provider       │────►│  Provider       │
+│                 │     │  (data source)  │     │                 │
+│  Creates        │     │  Fetches from   │     │  Posts to       │
+│  container      │     │  /api/system    │     │  /api/display   │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
+
+**Display Panel Strategy:**
+- **Now:** HTTP provider fetches `/api/system`, posts to display (shows data flow, slight duplication with System Info panel is intentional — raw JSON vs formatted)
+- **Future:** When `/metrics` endpoint exists (Phase 7), fetch that instead — dynamic metrics snapshot at apply time, no dedicated panel needed
+
 ### Phase 7: Polish
-- [ ] SQLite concurrency fix (WAL mode + busy timeout for parallel Terraform operations)
+- [ ] Prometheus metrics endpoint (`/metrics`) — enables Phase 6 display upgrade
 - [ ] External IP detection
 - [ ] Request header display
 - [ ] Environment variable filtering
@@ -258,6 +277,35 @@ resource "demoapp_display" "status" {
 - [ ] Terraform module example
 - [ ] Kubernetes manifest example
 - [ ] Helm chart
+
+### Phase 10: Demo Library
+
+Expanded demos showcasing demo-app with various technologies. Lives in `demo-app-examples/` repo.
+
+**Secrets Management:**
+- [ ] Vault demo (works with CE and Enterprise)
+- [ ] Inject secrets into demo-app, display in panel
+- [ ] Show dynamic secrets workflow
+
+**Observability:**
+- [ ] Grafana/Loki stack
+- [ ] Ship structured logs to dashboards
+- [ ] Visualize demo-app traffic patterns
+
+**CI/CD:**
+- [ ] GitHub Actions pipeline demo
+- [ ] Pipeline deploys demo-app, posts build status to display panel
+- [ ] Show full GitOps workflow
+
+**AI/Agentic:**
+- [ ] MCP server for demo-app (connects to "MCP Server" in Future Considerations)
+- [ ] Claude Desktop as demo UI ("customer" perspective)
+- [ ] Show AI agent managing application state
+
+**Purpose:** Build a library of examples that:
+1. Show what's possible with demo-app
+2. Provide templates others can adapt
+3. Help us learn what's missing in demo-app itself
 
 ---
 
@@ -318,7 +366,7 @@ Design considerations:
 
 ### Other Future Ideas
 - WebSocket endpoint for real-time demo scenarios
-- Prometheus metrics endpoint (`/metrics`)
+- ~~Prometheus metrics endpoint (`/metrics`)~~ — **Promoted to Phase 7**
 - Configurable response delays (for latency/timeout demos)
 
 ---
