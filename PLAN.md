@@ -56,8 +56,8 @@ A self-contained application that:
 │  /api/system    - System/network info                   │
 │  /api/health    - Health check endpoint                 │
 ├─────────────────────────────────────────────────────────┤
-│                    SQLite                               │
-│         (Embedded, file or in-memory)                   │
+│                    BadgerDB                             │
+│         (Embedded K/V store, in-memory or file)         │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -135,9 +135,11 @@ Every request logged as JSON:
 | `PORT` | `8080` | Listen port |
 | `LOG_LEVEL` | `info` | debug, info, warn, error |
 | `LOG_FORMAT` | `json` | json or text |
-| `DB_PATH` | `:memory:` | SQLite path, `:memory:` for ephemeral |
+| `DB_PATH` | `:memory:` | BadgerDB path, `:memory:` for ephemeral |
 | `SHOW_ENV` | `false` | Expose env vars in system info |
 | `ENV_FILTER` | `""` | Regex filter for displayed env vars |
+| `LOG_WEBHOOK_URL` | `""` | URL to POST log entries (Phase 7) |
+| `LOG_WEBHOOK_TOKEN` | `""` | Auth token for log webhook (Phase 7) |
 
 ---
 
@@ -249,13 +251,19 @@ resource "demoapp_display" "status" {
 - **Now:** HTTP provider fetches `/api/system`, posts to display (shows data flow, slight duplication with System Info panel is intentional — raw JSON vs formatted)
 - **Future:** When `/metrics` endpoint exists (Phase 7), fetch that instead — dynamic metrics snapshot at apply time, no dedicated panel needed
 
-### Phase 7: Polish
-- [ ] Prometheus metrics endpoint (`/metrics`) — enables Phase 6 display upgrade
-- [ ] External IP detection
-- [ ] Request header display
-- [ ] Environment variable filtering
-- [ ] Highlights endpoint (complement to display)
-- [ ] Configuration documentation
+### Phase 7: Observability & Polish
+- [ ] Prometheus `/metrics` endpoint (using `prometheus/client_golang`)
+  - App metrics: `demoapp_http_requests_total`, `demoapp_http_request_duration_seconds`, `demoapp_items_total`, `demoapp_display_updates_total`, `demoapp_info`
+  - Go runtime metrics: goroutines, memory, GC (included by default)
+  - Process metrics: CPU, file descriptors (included by default)
+- [ ] Log webhook shipping — optional `LOG_WEBHOOK_URL` + `LOG_WEBHOOK_TOKEN` for pushing logs to any HTTP endpoint (Splunk HEC, Loki, etc.)
+- [ ] Request header display — show incoming headers in `/api/system` response
+- [ ] Environment variable filtering — regex-based via `ENV_FILTER` env var
+- [ ] Configuration documentation — document all env vars and options
+
+**Design Decisions:**
+- **Prometheus format** chosen over OpenTelemetry for simplicity and wide compatibility. Most observability platforms (Splunk, Datadog, Grafana, etc.) can ingest Prometheus format natively or via collectors.
+- **Log webhook** keeps the app vendor-neutral — just HTTP POST with JSON. No Splunk SDK, no Loki SDK. The receiving end handles any format transformation needed.
 
 ### Phase 8: CI/CD
 - [ ] GitHub Actions workflow for CI (build, test, lint on push/PR)
@@ -362,7 +370,25 @@ Design considerations:
 - Could replace or extend `/api/items` with a `metadata` field
 - Or be a separate endpoint entirely (`/api/highlights`, `/api/values`)
 
-**Status:** Idea captured, not yet designed. Revisit after Phase 3 frontend is working.
+**Status:** Deferred from Phase 7. New idea: could the display panel auto-parse incoming JSON and extract key values to highlight? Needs more thought before implementing a separate endpoint.
+
+### External IP Detection
+
+Show the app's public IP address in the system info panel. Useful for demos in cloud environments (AWS, GCP, Azure) to prove deployment location.
+
+**Considerations:**
+- Requires outbound call to external service (ifconfig.me, icanhazip.com, etc.)
+- Less useful for local Docker containers
+- Should be opt-in via environment variable
+- Need to handle timeout/failure gracefully
+
+**Status:** Deferred from Phase 7. Needs more thought on the exact use case — showing client IP (from request headers) may be more valuable than showing the app's own public IP.
+
+### UI Polish
+
+Make the frontend more visually appealing — colors, typography, layout, animations.
+
+**Status:** Deferred until feature set is finalized. No point polishing UI that might change.
 
 ### Other Future Ideas
 - WebSocket endpoint for real-time demo scenarios
@@ -376,7 +402,7 @@ Design considerations:
 - [x] Frontend framework choice — **Vanilla JS** (decided: learn fundamentals, no build step, same philosophy as backend)
 - [x] Router choice — stdlib `net/http` (decided: learn fundamentals first)
 - [x] ~~SQLite driver~~ — Switched to **BadgerDB** in Phase 6 for concurrent write support
-- [ ] How to handle external IP detection reliably across cloud providers?
+- [x] ~~External IP detection~~ — Deferred to Future Considerations; showing client IP via headers may be more useful
 
 ---
 

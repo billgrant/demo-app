@@ -773,3 +773,69 @@ for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 ### Phase 6 Complete ✓
 
 ---
+
+## 2026-01-16 — Session 10: Phase 7 Planning
+
+### What We Planned
+
+Phase 7 scope defined — "Observability & Polish":
+
+| Item | Description |
+|------|-------------|
+| Prometheus `/metrics` | App metrics + Go runtime + process metrics |
+| Log webhook shipping | Optional `LOG_WEBHOOK_URL` for pushing logs to any HTTP endpoint |
+| Request header display | Show incoming headers in `/api/system` |
+| Environment variable filtering | Regex-based via `ENV_FILTER` |
+| Configuration documentation | Document all env vars |
+
+### Metrics Discussion
+
+**App-specific metrics planned:**
+- `demoapp_http_requests_total` (counter, labels: method, path, status)
+- `demoapp_http_request_duration_seconds` (histogram)
+- `demoapp_items_total` (gauge)
+- `demoapp_display_updates_total` (counter)
+- `demoapp_info` (gauge with version/commit labels)
+
+**System metrics (free from library):**
+- Go runtime: goroutines, memory, GC
+- Process: CPU, file descriptors
+
+**Why Prometheus format over OpenTelemetry:**
+- Simpler to implement
+- Wide compatibility — Splunk, Datadog, Grafana all support it
+- OTel is more complex; Bill's Grafana interview experience confirmed setup pain
+
+### Log Webhook Design
+
+**Problem:** Stdout logs work great with container runtimes (Docker captures, K8s ships via agents), but what about demos where you're running the binary directly and want logs in Splunk/Loki?
+
+**Solution:** Optional webhook — if `LOG_WEBHOOK_URL` is set, POST each log entry as JSON.
+
+```
+Log event → Write to stdout (always) → If webhook configured, also POST to URL
+```
+
+**Keeps app vendor-neutral:**
+- No Splunk SDK, no Loki SDK
+- Just HTTP POST with JSON
+- Receiving end handles format transformation
+
+### Deferred Items
+
+Moved to Future Considerations:
+
+| Item | Reason |
+|------|--------|
+| External IP detection | Needs more thought — client IP (from headers) may be more useful than app's public IP |
+| Highlights endpoint | New idea about auto-parsing display data; not ready to design |
+| UI polish | Wait until feature set is finalized |
+
+### Files Changed
+- `PLAN.md` — Phase 7 scope updated, deferred items documented
+- `DEVLOG.md` — this session
+
+### Next Session
+Implement Phase 7: Prometheus metrics endpoint first, then log webhook, then header display.
+
+---
