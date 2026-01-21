@@ -839,3 +839,303 @@ Moved to Future Considerations:
 Implement Phase 7: Prometheus metrics endpoint first, then log webhook, then header display.
 
 ---
+
+## 2026-01-19 — Session 11: Prometheus Metrics Implementation
+
+### What We Built
+- Prometheus `/metrics` endpoint using `prometheus/client_golang`
+- Custom app metrics for HTTP requests, items, and display updates
+- Path normalization to prevent cardinality explosion
+
+### Metrics Implemented
+
+| Metric | Type | Labels | Purpose |
+|--------|------|--------|---------|
+| `demoapp_http_requests_total` | Counter | method, path, status | Track request counts |
+| `demoapp_http_request_duration_seconds` | Histogram | method, path | Track response times |
+| `demoapp_items_total` | Gauge | — | Current item count |
+| `demoapp_display_updates_total` | Counter | — | Track display POSTs |
+| `demoapp_info` | Gauge | version | Build info (always 1) |
+
+**Plus free from the library:**
+- `go_goroutines` — active goroutines
+- `go_memstats_*` — memory allocation stats
+- `go_gc_*` — garbage collection timing
+- `process_*` — CPU, file descriptors
+
+### Go/Prometheus Concepts Covered
+
+**Metric Types**
+- **Counter** — only increases (requests, errors, updates)
+- **Gauge** — can go up or down (current items, connections)
+- **Histogram** — tracks distribution of values (response times)
+
+**Labels — Dimensions for Slicing Data**
+```go
+httpRequestsTotal = prometheus.NewCounterVec(
+    prometheus.CounterOpts{
+        Name: "demoapp_http_requests_total",
+        Help: "Total number of HTTP requests",
+    },
+    []string{"method", "path", "status"},  // labels
+)
+```
+- Labels create sub-metrics: `demoapp_http_requests_total{method="GET",path="/health",status="200"}`
+- Each unique label combination is a separate time series
+- Too many labels = "cardinality explosion" (memory/storage issues)
+
+**Path Normalization — Avoiding High Cardinality**
+```go
+func normalizePath(path string) string {
+    if strings.HasPrefix(path, "/api/items/") {
+        return "/api/items/:id"  // /api/items/123 -> /api/items/:id
+    }
+    return path
+}
+```
+- Without this, `/api/items/1`, `/api/items/2`, etc. would each create a new metric series
+- Normalizing to `/api/items/:id` keeps cardinality bounded
+
+**`init()` Function — Auto-Run Before Main**
+```go
+func init() {
+    prometheus.MustRegister(httpRequestsTotal)
+    prometheus.MustRegister(httpRequestDuration)
+    // ...
+}
+```
+- `init()` runs automatically before `main()`
+- Common pattern for registering metrics, database drivers, etc.
+- Multiple `init()` functions allowed in a package
+
+**Why /metrics Isn't Logged**
+```go
+// No loggingMiddleware wrapper
+http.Handle("/metrics", promhttp.Handler())
+```
+- Prometheus scrapes every 15-60 seconds
+- Would flood logs with noise
+- Would create metrics about the metrics endpoint (recursive)
+
+### Testing Results
+
+```bash
+# After creating 2 items and 1 display update:
+demoapp_items_total 2
+demoapp_display_updates_total 1
+demoapp_http_requests_total{method="POST",path="/api/items",status="201"} 2
+demoapp_http_requests_total{method="POST",path="/api/display",status="201"} 1
+
+# After deleting 1 item:
+demoapp_items_total 1  # gauge decreased
+```
+
+### Files Changed
+- `main.go` — added imports, metrics definitions, `init()`, instrumented middleware and handlers
+- `go.mod` / `go.sum` — added `prometheus/client_golang` dependency
+
+### Phase 7 Progress
+- [x] Prometheus `/metrics` endpoint
+- [ ] **Code refactoring** (added this session)
+- [ ] Log webhook shipping
+- [ ] Request header display
+- [ ] Environment variable filtering
+- [ ] Configuration documentation
+
+### End-of-Session Discussion: Future Plans
+
+**1. Architecture Diagram for Demos**
+- Visual documentation showing how the app works
+- Format: Mermaid (renders on GitHub, version controlled)
+- Content: architecture overview, request flow, demo scenarios
+- Timing: Wait until feature set is finalized (added to Phase 9)
+
+**2. Refactoring main.go**
+- File has grown to ~700 lines — mixing handlers, middleware, database, metrics
+- Plan: Split into multiple files within same package:
+  - `main.go` — startup, routing, configuration
+  - `handlers.go` — HTTP handlers
+  - `store.go` — BadgerDB operations
+  - `middleware.go` — logging with metrics
+  - `metrics.go` — Prometheus definitions
+- **Key requirement:** Provide detailed explanations during refactor. Bill noted he's having trouble following code as it moves around. This aligns with AGENTS.md "Learning-First Development" — explain what's moving and why.
+- Timing: Do before remaining Phase 7 items (cleaner foundation)
+
+### Next Session
+Code refactoring with detailed explanations, then continue Phase 7 items.
+
+---
+
+## 2026-01-21 — Session 12: Code Refactoring
+
+### What We Built
+- Split `main.go` (~730 lines) into 5 focused files
+- Zero behavior changes — same functionality, better organization
+- All tests pass
+
+### File Structure After Refactoring
+
+| File | Lines | Responsibility |
+|------|-------|----------------|
+| `handlers.go` | 455 | HTTP endpoint logic (health, items, display, system) |
+| `main.go` | 149 | Startup, configuration, routing |
+| `middleware.go` | 90 | Request logging, metrics recording |
+| `metrics.go` | 74 | Prometheus metric definitions, `init()` |
+| `store.go` | 67 | Data model, database setup |
+| **Total** | 835 | (was ~730, grew due to added comments) |
+
+### Go Concepts Covered
+
+**Package Scope — Multiple Files, One Namespace**
+
+All `.go` files in the same directory with `package main` share variables and functions automatically:
+
+```go
+// store.go
+var db *badger.DB  // package-level
+
+// handlers.go
+func listItems(w http.ResponseWriter, r *http.Request) {
+    db.View(...)  // uses db from store.go directly — no import needed
+}
+```
+
+This is why you don't need imports between files in the same package. Think of it like all files being concatenated into one big file at compile time.
+
+**Terraform Parallel**
+
+Bill noticed this is exactly how Terraform works — all `.tf` files in a directory share the same namespace. Variables, resources, and data sources from any file are accessible in all other files. Same design pattern, because Terraform is written in Go.
+
+**Variable Scope Levels**
+
+```go
+var X = 10  // package-level — all files can access
+
+func main() {
+    X := 5  // function-level — shadows package-level X (new variable!)
+
+    if true {
+        X := 3  // block-level — shadows function-level X
+    }
+}
+```
+
+Key insight: `X := 5` inside a function creates a NEW local variable, even if a package-level `X` exists. The package-level `X` is "shadowed" (hidden), not modified.
+
+**Shadowing Is Just the Name**
+
+"Shadowing" creates a completely new, independent variable that happens to have the same name. No copying, no connection to the outer variable:
+
+```go
+var count = 10  // package-level
+
+func example() {
+    count := 5   // NEW variable, doesn't touch outer count
+    fmt.Println(count)  // 5
+}
+
+func main() {
+    example()
+    fmt.Println(count)  // 10 — unchanged
+}
+```
+
+The term "shadow" comes from the visual metaphor: the inner variable "casts a shadow" over the outer one, hiding it from view within that scope.
+
+**`:=` vs `=` — The Critical Distinction**
+
+```go
+var db *badger.DB  // package-level
+
+func main() {
+    db, err := initStore()  // WRONG: creates local db, package-level stays nil!
+
+    var err error
+    db, err = initStore()   // RIGHT: assigns to existing package-level db
+}
+```
+
+- `:=` — declares AND initializes a NEW variable (short declaration)
+- `=` — assigns to an EXISTING variable
+
+This is why our code uses `var err error` then `db, err = initStore()` — to assign to the package-level `db`, not create a local one.
+
+**Package-Level Variables Don't Need Passing**
+
+Unlike Python where you might need `global` to modify a module-level variable:
+
+```go
+var db *badger.DB  // package-level
+
+func handler(w http.ResponseWriter, r *http.Request) {
+    // Can read AND write db directly — no passing needed
+    db.View(...)
+}
+```
+
+Functions can freely access package-level variables without them being passed as parameters.
+
+### What Moved Where
+
+**metrics.go** — "What are we measuring?"
+- Metric variable definitions (`httpRequestsTotal`, `httpRequestDuration`, etc.)
+- `init()` function that registers metrics
+
+**middleware.go** — "What happens to every request?"
+- `responseRecorder` struct (captures HTTP status)
+- `loggingMiddleware` function (logs + records metrics)
+- `normalizePath` function (prevents cardinality explosion)
+
+**store.go** — "How do we store data?"
+- `itemKeyPrefix` constant (`"item:"`)
+- Package-level variables: `db`, `itemSeq`, `displayData`
+- `Item` struct
+- `initStore` function
+
+**handlers.go** — "What does each endpoint do?"
+- `healthHandler`
+- `itemsHandler`, `listItems`, `createItem`, `getItem`, `updateItem`, `deleteItem`
+- `displayHandler`, `getDisplay`, `setDisplay`
+- `systemHandler`, `getIPAddresses`, `getFilteredEnvVars`
+
+**main.go** — "How does the app start?"
+- `//go:embed` directive and `staticFiles`
+- `runHealthcheck` function (Docker healthcheck)
+- `main()` with config, initialization, and routing
+
+### Testing Results
+
+```bash
+# Build succeeds
+go build -o demo-app .
+
+# All endpoints work
+curl http://localhost:8080/health
+# {"status":"ok","timestamp":"2026-01-21T15:07:30Z"}
+
+curl -X POST http://localhost:8080/api/items -d '{"name":"Test"}'
+# {"id":0,"name":"Test",...}
+
+curl http://localhost:8080/metrics | grep demoapp_items_total
+# demoapp_items_total 1
+```
+
+### Files Changed
+- `metrics.go` — new file
+- `middleware.go` — new file
+- `store.go` — new file
+- `handlers.go` — new file
+- `main.go` — trimmed from ~730 to 149 lines
+
+### Phase 7 Progress
+- [x] Prometheus `/metrics` endpoint
+- [x] **Code refactoring**
+- [ ] Log webhook shipping
+- [ ] Request header display
+- [ ] Environment variable filtering
+- [ ] Configuration documentation
+
+### Next Session
+Continue Phase 7: log webhook shipping, then header display and env filtering.
+
+---
