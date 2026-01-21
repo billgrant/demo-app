@@ -263,7 +263,7 @@ resource "demoapp_display" "status" {
   - `middleware.go` — logging middleware with metrics instrumentation
   - `metrics.go` — Prometheus metric definitions and registration
 - [ ] Log webhook shipping — optional `LOG_WEBHOOK_URL` + `LOG_WEBHOOK_TOKEN` for pushing logs to any HTTP endpoint (Splunk HEC, Loki, etc.)
-- [ ] Request header display — show incoming headers in `/api/system` response
+- [x] Request header display — show incoming headers in `/api/system` response
 - [ ] Environment variable filtering — regex-based via `ENV_FILTER` env var
 - [ ] Configuration documentation — document all env vars and options
 

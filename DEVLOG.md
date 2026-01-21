@@ -1135,7 +1135,58 @@ curl http://localhost:8080/metrics | grep demoapp_items_total
 - [ ] Environment variable filtering
 - [ ] Configuration documentation
 
+---
+
+## 2026-01-21 — Session 12 (continued): Request Headers & Client Info
+
+### What We Built
+- Added request headers to `/api/system` response (API only)
+- Added `client_ip` and `user_agent` to system info (API and dashboard)
+
+### Design Decisions
+
+**Headers: API-only, not on dashboard**
+
+Initially added headers to the dashboard, but removed them because:
+- Browsers send many verbose headers (Accept, Accept-Encoding, Accept-Language, User-Agent, etc.)
+- Takes up too much screen real estate
+- Not particularly useful to show an audience during a demo
+
+Headers remain available via `curl /api/system | jq .headers` for debugging proxy chains, auth issues, etc.
+
+**Client IP and User Agent: Dashboard-friendly**
+
+Instead of raw headers, added these two fields which are more demo-useful:
+- `client_ip` — shows who's hitting the app (from `r.RemoteAddr`)
+- `user_agent` — shows what client is making the request (from `r.UserAgent()`)
+
+**Use case for demos:**
+
+When demoing Terraform provisioning an EC2:
+1. System Info shows the EC2's local IP (proving where app is deployed)
+2. Client IP shows the demo engineer's IP (proving traffic flows from their machine)
+
+Two different IPs on screen = simple visual proof the infrastructure works.
+
+### Go Concepts Covered
+
+**`r.RemoteAddr`** — The client's IP:port that made the request. For proxied requests, this is the proxy's IP (real client IP would be in `X-Forwarded-For` header).
+
+**`r.UserAgent()`** — Convenience method that returns the `User-Agent` header value. Equivalent to `r.Header.Get("User-Agent")`.
+
+### Files Changed
+- `handlers.go` — added `getRequestHeaders()`, `client_ip`, `user_agent` to systemHandler
+- `static/app.js` — added Client IP and User Agent rows to System Info panel
+
+### Phase 7 Progress (updated)
+- [x] Prometheus `/metrics` endpoint
+- [x] **Code refactoring**
+- [x] Request header display (API-only + client_ip/user_agent on dashboard)
+- [ ] Log webhook shipping
+- [ ] Environment variable filtering
+- [ ] Configuration documentation
+
 ### Next Session
-Continue Phase 7: log webhook shipping, then header display and env filtering.
+Continue Phase 7: log webhook shipping, env filtering, config docs.
 
 ---

@@ -128,6 +128,14 @@ function renderSystem(data) {
             <span class="info-label">IPs</span>
             <span class="info-value">${ips}</span>
         </div>
+        <div class="info-row">
+            <span class="info-label">Client IP</span>
+            <span class="info-value">${data.client_ip || 'unknown'}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">User Agent</span>
+            <span class="info-value">${escapeHtml(data.user_agent || 'unknown')}</span>
+        </div>
         ${envVars}
     `;
 }

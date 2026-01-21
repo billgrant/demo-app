@@ -389,10 +389,23 @@ func systemHandler(w http.ResponseWriter, r *http.Request) {
 	// Get selected environment variables (safe to expose)
 	envVars := getFilteredEnvVars()
 
+	// Get request headers (useful for debugging proxy chains, auth, etc.)
+	// r.Header is map[string][]string — headers can have multiple values
+	headers := getRequestHeaders(r)
+
+	// Get client info from the request (demo-friendly, shows "who's hitting the app")
+	// r.RemoteAddr is the client's IP:port
+	// r.UserAgent() is a convenience method for the User-Agent header
+	clientIP := r.RemoteAddr
+	userAgent := r.UserAgent()
+
 	response := map[string]interface{}{
 		"hostname":    hostname,
 		"ips":         ips,
 		"environment": envVars,
+		"headers":     headers,
+		"client_ip":   clientIP,
+		"user_agent":  userAgent,
 	}
 
 	json.NewEncoder(w).Encode(response)
@@ -452,4 +465,26 @@ func getFilteredEnvVars() map[string]string {
 		}
 	}
 	return result
+}
+
+// getRequestHeaders returns HTTP headers from the incoming request
+// Useful for debugging:
+//   - Proxy chains: X-Forwarded-For, X-Real-IP
+//   - Load balancers: X-Forwarded-Proto, X-Forwarded-Host
+//   - Auth: Authorization (shows if present, not the value for security)
+//   - Client info: User-Agent, Accept, Accept-Language
+func getRequestHeaders(r *http.Request) map[string]string {
+	headers := make(map[string]string)
+
+	for name, values := range r.Header {
+		if len(values) == 1 {
+			// Most headers have single values
+			headers[name] = values[0]
+		} else {
+			// Multiple values: join with comma (standard HTTP format)
+			headers[name] = strings.Join(values, ", ")
+		}
+	}
+
+	return headers
 }
