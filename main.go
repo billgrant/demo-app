@@ -48,8 +48,31 @@ func main() {
 
 	// Configure structured JSON logging
 	// All log output will be JSON for easy parsing by log aggregators
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	//
+	// If LOG_WEBHOOK_URL is set, logs are also POSTed to that URL.
+	// This enables shipping logs to Splunk, Loki, or any HTTP endpoint
+	// without requiring a sidecar or external agent.
+	jsonHandler := slog.NewJSONHandler(os.Stdout, nil)
+
+	webhookURL := os.Getenv("LOG_WEBHOOK_URL")
+	webhookToken := os.Getenv("LOG_WEBHOOK_TOKEN")
+
+	var handler slog.Handler
+	if webhookURL != "" {
+		// Wrap the JSON handler with webhook functionality
+		handler = newWebhookHandler(jsonHandler, webhookURL, webhookToken)
+	} else {
+		// No webhook, just use the JSON handler directly
+		handler = jsonHandler
+	}
+
+	logger := slog.New(handler)
 	slog.SetDefault(logger)
+
+	// Log webhook status after logger is configured
+	if webhookURL != "" {
+		slog.Info("log webhook enabled", "url", webhookURL)
+	}
 
 	// Get configuration from environment variables
 	port := os.Getenv("PORT")

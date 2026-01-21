@@ -1190,3 +1190,148 @@ Two different IPs on screen = simple visual proof the infrastructure works.
 Continue Phase 7: log webhook shipping, env filtering, config docs.
 
 ---
+
+## 2026-01-21 — Session 13: Log Webhook Shipping
+
+### What We Built
+- Log webhook feature: if `LOG_WEBHOOK_URL` is set, logs POST to that URL
+- Optional `LOG_WEBHOOK_TOKEN` for Authorization header
+- Custom `slog.Handler` implementation that wraps JSONHandler
+- Test scripts for manual verification
+
+### Go Concepts Covered (Deep Dive)
+
+This session included extended discussion of core Go concepts. Documenting here for future reference.
+
+**`context.Context` — The Request Envelope**
+
+Context carries request-scoped data across API boundaries:
+- **Cancellation** — signals "stop working on this"
+- **Deadlines/Timeouts** — automatic cancellation after X time
+- **Values** — request-scoped data (use sparingly)
+
+Networking analogy: Like packet metadata (TTL, source info) that travels with the payload. Functions can check if the request is still alive.
+
+```go
+func Handle(ctx context.Context, record slog.Record) error {
+    // ctx tells us: is this request still alive? any deadline?
+}
+```
+
+**Interfaces — The Contract**
+
+An interface defines what something can DO (methods). A struct defines what something HAS (fields).
+
+```go
+// Interface: "anything with these methods qualifies"
+type Driveable interface {
+    Drive()
+    Stop()
+}
+
+// Struct: "this is the data"
+type Car struct {
+    Brand string
+    Speed int
+}
+
+// Methods make Car satisfy Driveable
+func (c *Car) Drive() { ... }
+func (c *Car) Stop() { ... }
+```
+
+Key insight: In Go, you don't explicitly declare "Car implements Driveable". If Car has the methods, it automatically satisfies the interface. Compile-time duck typing.
+
+**`type` Keyword — Creating Types**
+
+`struct` and `interface` are not types themselves — they're ways to CREATE types:
+
+```go
+type Item struct { ... }      // creates type "Item" (kind: struct)
+type Handler interface { ... } // creates type "Handler" (kind: interface)
+type UserID int               // creates type "UserID" (based on int)
+```
+
+**Method Receivers and Pointers**
+
+Methods are defined OUTSIDE the struct (unlike Python classes):
+
+```go
+type Car struct { Brand string }
+
+// Method belongs to *Car (pointer receiver)
+func (c *Car) Drive() { ... }
+```
+
+The `(c *Car)` is the receiver — like `self` in Python. Because it's `*Car` (pointer), the method belongs to the pointer type. That's why we use `&Car{}`:
+
+```go
+car := &Car{Brand: "Toyota"}  // *Car satisfies Driveable
+car := Car{Brand: "Toyota"}   // Car does NOT satisfy Driveable (methods are on *Car)
+```
+
+**slog.Handler Interface**
+
+The stdlib `slog` package uses handlers to control where logs go:
+
+```go
+type Handler interface {
+    Enabled(context.Context, Level) bool
+    Handle(context.Context, Record) error
+    WithAttrs(attrs []Attr) Handler
+    WithGroup(name string) Handler
+}
+```
+
+Our `webhookHandler` implements this interface, wrapping the JSONHandler and adding webhook functionality.
+
+### Design Decisions
+
+**Async webhook calls:**
+Webhooks POST in a goroutine (`go w.postToWebhook(entry)`) so slow/failed webhooks don't block HTTP responses.
+
+**Fire and forget:**
+Failed webhook calls log to stderr but don't affect the application. Logs always go to stdout; webhook is best-effort.
+
+**Vendor neutral:**
+No Splunk SDK, no Loki SDK. Just HTTP POST with JSON. The receiving system handles format transformation.
+
+### Files Changed
+- `webhook.go` — new file, custom slog.Handler implementation
+- `main.go` — reads LOG_WEBHOOK_URL/TOKEN, configures handler
+- `scripts/test-webhook.sh` — automated test script
+- `scripts/webhook-receiver/main.go` — simple Go server for manual testing
+
+### Configuration
+
+| Env Var | Description | Default |
+|---------|-------------|---------|
+| `LOG_WEBHOOK_URL` | URL to POST log entries to | (disabled) |
+| `LOG_WEBHOOK_TOKEN` | Value for Authorization header | (none) |
+
+### Testing
+
+```bash
+# Automated test
+./scripts/test-webhook.sh
+
+# Manual test (two terminals)
+# Terminal 1:
+go run scripts/webhook-receiver/main.go
+
+# Terminal 2:
+LOG_WEBHOOK_URL="http://localhost:9999/logs" ./demo-app
+```
+
+### Phase 7 Progress
+- [x] Prometheus `/metrics` endpoint
+- [x] Code refactoring
+- [x] Request header display
+- [x] **Log webhook shipping**
+- [ ] Environment variable filtering
+- [ ] Configuration documentation
+
+### Next Session
+Continue Phase 7: env filtering, config docs.
+
+---
