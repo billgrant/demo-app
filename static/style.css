@@ -130,7 +130,8 @@ button.danger:hover {
 
 #system-content .info-label {
     color: #888;
-    width: 100px;
+    min-width: 100px;
+    margin-right: 1rem;
     flex-shrink: 0;
 }
 

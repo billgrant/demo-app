@@ -7,33 +7,37 @@ A universal demo application for infrastructure, security, and platform demonstr
 When demoing infrastructure tools (Terraform, Vault, CI/CD pipelines, network appliances), you need something to deploy. Most demo apps are either too simple ("Hello World") or too complex (full production apps). This app sits in the sweet spot:
 
 - **Real enough** — REST API, database, frontend, structured logging
-- **Simple enough** — single binary, SQLite, one container
+- **Simple enough** — single binary, embedded database, one container
 - **Universal** — doesn't assume what you're demoing; accepts injected data
 - **Observable** — structured logs, system info, network details for any monitoring stack
 
 ## Status
 
-🚧 **Phase 2 In Progress** — Core API endpoints built. See [PLAN.md](PLAN.md) for roadmap.
+🚧 **Phase 7 In Progress** — Observability & Polish. See [PLAN.md](PLAN.md) for roadmap.
 
 ### What's Working
-- HTTP server with structured JSON logging
-- SQLite database (in-memory or file-based)
+- Single binary with embedded frontend (dashboard)
+- BadgerDB storage (in-memory or persistent)
+- Full CRUD API (`/api/items`)
+- Display panel for injected demo data (`/api/display`)
+- System info with configurable env var display (`/api/system`)
+- Prometheus metrics endpoint (`/metrics`)
+- Optional log webhook shipping
 - Docker container with hardened images
-- Full CRUD API for items
-- Display panel for injected demo data
-- System info endpoint
 
 ### Quick Start
 
 ```bash
 # Run locally
-go run main.go
+go build -o demo-app . && ./demo-app
 
 # Or with Docker (requires docker login dhi.io)
 docker login dhi.io
 docker build -t demo-app .
 docker run --rm -p 8080:8080 demo-app
 ```
+
+Open http://localhost:8080 to view the dashboard.
 
 ## API Endpoints
 
@@ -87,8 +91,12 @@ Useful for demos showing load balancing, container orchestration, or multi-node 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `8080` | Listen port |
-| `DB_PATH` | `:memory:` | SQLite path (`:memory:` or file path) |
+| `PORT` | `8080` | HTTP listen port |
+| `DB_PATH` | `:memory:` | Database path (`:memory:` or file path) |
+| `ENV_FILTER` | (allowlist) | Regex pattern for displayed env vars |
+| `LOG_WEBHOOK_URL` | (disabled) | URL to POST log entries |
+
+See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for full details and examples.
 
 ## Links
 

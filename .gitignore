@@ -45,3 +45,4 @@ build/
 # Frontend build (if separate)
 frontend/node_modules/
 frontend/dist/
+

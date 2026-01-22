@@ -1335,3 +1335,106 @@ LOG_WEBHOOK_URL="http://localhost:9999/logs" ./demo-app
 Continue Phase 7: env filtering, config docs.
 
 ---
+
+## 2026-01-22 — Session 14: ENV_FILTER & Configuration Docs
+
+### What We Built
+- `ENV_FILTER` environment variable for regex-based filtering of displayed env vars
+- `docs/CONFIGURATION.md` — comprehensive configuration documentation
+- CSS fix for long environment variable names in dashboard
+- Updated README.md with current status and features
+
+### Go Concepts Covered
+
+**`os.Getenv()` vs `os.Hostname()` — Two Different Sources**
+
+```go
+os.Getenv("HOSTNAME")  // Reads from environment variables (may not exist)
+os.Hostname()          // Syscall to kernel (always works)
+```
+
+- Environment variables are inherited from the parent process (your shell)
+- `os.Hostname()` asks the kernel directly — same as running `hostname` in bash
+- Docker/K8s often set `HOSTNAME` env var automatically; desktop Linux typically doesn't
+
+Bash equivalent to see all env vars:
+```bash
+env        # or printenv — same data os.Environ() returns
+```
+
+**`regexp` Package — Pattern Matching**
+
+```go
+// Compile once, use many times
+re, err := regexp.Compile("(?i)" + pattern)  // (?i) = case-insensitive
+
+// Test if string matches
+if re.MatchString(key) { ... }
+```
+
+- Similar to Python's `re.compile()` and `pattern.match()`
+- `(?i)` prefix makes the pattern case-insensitive
+- Invalid patterns return an error on `Compile()` — handle gracefully
+
+**`strings.SplitN()` — Controlled Splitting**
+
+```go
+// os.Environ() returns "KEY=value" strings
+parts := strings.SplitN(envVar, "=", 2)
+key, value := parts[0], parts[1]
+```
+
+- `SplitN(s, sep, n)` splits into at most `n` parts
+- Important because values can contain `=` characters
+- Without the `2`, `DB_URL=postgres://user:pass@host` would split wrong
+
+### Design Decisions
+
+**Regex replaces allowlist when set:**
+- Default (no `ENV_FILTER`): safe allowlist of common vars
+- With `ENV_FILTER`: user takes full control, regex matches against ALL env vars
+- Security note documented — user responsible for not exposing secrets
+
+**Case-insensitive matching:**
+- `ENV_FILTER="^demo"` matches `DEMO_VERSION`
+- More user-friendly, less error-prone
+
+**Invalid regex handling:**
+- Logs error, returns empty map
+- Better to show nothing than crash or expose unintended vars
+
+### CSS Fix
+
+**Problem:** Environment variable names longer than 100px (like `DEMO_LONG_VARIABLE_NAME`) overlapped with values in the dashboard.
+
+**Fix:** Changed `.info-label` from `width: 100px` to `min-width: 100px` + `margin-right: 1rem`. Labels now grow to fit content.
+
+### Documentation Structure
+
+Created `docs/` folder for detailed documentation:
+- `docs/CONFIGURATION.md` — full env var docs with examples
+- README.md has quick reference table + link to full docs
+
+This keeps the README scannable while providing depth for users who need it.
+
+### Files Changed
+- `handlers.go` — added `regexp` import, rewrote `getFilteredEnvVars()` with regex support
+- `static/style.css` — fixed `.info-label` width for long env var names
+- `docs/CONFIGURATION.md` — new file, comprehensive configuration docs
+- `README.md` — updated status to Phase 7, fixed SQLite→BadgerDB refs, added config link
+- `PLAN.md` — marked Phase 7 complete
+
+### Phase 7 Complete ✓
+
+All items done:
+- [x] Prometheus `/metrics` endpoint
+- [x] Code refactoring
+- [x] Request header display
+- [x] Log webhook shipping
+- [x] Environment variable filtering
+- [x] Configuration documentation
+
+### Next Up
+Phase 8: CI/CD — tests, GitHub Actions, releases.
+
+---

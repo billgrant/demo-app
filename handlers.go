@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -444,10 +445,63 @@ func getIPAddresses() []string {
 	return ips
 }
 
-// getFilteredEnvVars returns environment variables safe to expose
-// Only returns values for explicitly allowed variable names
+// getFilteredEnvVars returns environment variables to display in the System Info panel.
+//
+// Behavior depends on the ENV_FILTER environment variable:
+//
+//   - ENV_FILTER not set (default): Uses a safe allowlist of common variables
+//     (PORT, DB_PATH, HOSTNAME, Kubernetes vars, etc.)
+//
+//   - ENV_FILTER set: Uses the value as a case-insensitive regex pattern to match
+//     variable NAMES against ALL environment variables. This gives full control
+//     over what's displayed on the dashboard during demos.
+//
+// Examples:
+//
+//	ENV_FILTER="^DEMO_"           -> shows only vars starting with DEMO_
+//	ENV_FILTER="^(POD_|NODE_)"    -> shows Kubernetes-related vars
+//	ENV_FILTER=".*"               -> shows ALL env vars (use with caution)
+//
+// Security note: When ENV_FILTER is set, the user takes responsibility for
+// not exposing sensitive variables (AWS_SECRET_ACCESS_KEY, passwords, etc.)
 func getFilteredEnvVars() map[string]string {
-	// Allowlist of env vars to expose
+	result := make(map[string]string)
+
+	// Check if user provided a custom filter pattern
+	filterPattern := os.Getenv("ENV_FILTER")
+
+	if filterPattern != "" {
+		// User-defined regex filter: match against ALL env vars
+		// (?i) makes the pattern case-insensitive
+		re, err := regexp.Compile("(?i)" + filterPattern)
+		if err != nil {
+			// Invalid regex - log the error and return empty map
+			// Better to show nothing than crash or expose unintended vars
+			slog.Error("invalid ENV_FILTER regex", "pattern", filterPattern, "error", err)
+			return result
+		}
+
+		// os.Environ() returns all env vars as "KEY=value" strings
+		// This is the same data you see with the `env` command in bash
+		for _, envVar := range os.Environ() {
+			// Split on first "=" to separate key from value
+			// (values can contain "=" characters)
+			parts := strings.SplitN(envVar, "=", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			key, value := parts[0], parts[1]
+
+			// Test if the variable NAME matches the pattern
+			if re.MatchString(key) {
+				result[key] = value
+			}
+		}
+		return result
+	}
+
+	// Default behavior: safe allowlist of common variables
+	// These are typically set by container runtimes and orchestrators
 	allowed := []string{
 		"PORT",
 		"DB_PATH",
@@ -458,7 +512,6 @@ func getFilteredEnvVars() map[string]string {
 		"CONTAINER_ID",  // Docker
 	}
 
-	result := make(map[string]string)
 	for _, key := range allowed {
 		if val := os.Getenv(key); val != "" {
 			result[key] = val

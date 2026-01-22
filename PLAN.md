@@ -251,7 +251,7 @@ resource "demoapp_display" "status" {
 - **Now:** HTTP provider fetches `/api/system`, posts to display (shows data flow, slight duplication with System Info panel is intentional — raw JSON vs formatted)
 - **Future:** When `/metrics` endpoint exists (Phase 7), fetch that instead — dynamic metrics snapshot at apply time, no dedicated panel needed
 
-### Phase 7: Observability & Polish
+### Phase 7: Observability & Polish ✓
 - [x] Prometheus `/metrics` endpoint (using `prometheus/client_golang`)
   - App metrics: `demoapp_http_requests_total`, `demoapp_http_request_duration_seconds`, `demoapp_items_total`, `demoapp_display_updates_total`, `demoapp_info`
   - Go runtime metrics: goroutines, memory, GC (included by default)
@@ -264,17 +264,17 @@ resource "demoapp_display" "status" {
   - `metrics.go` — Prometheus metric definitions and registration
 - [x] Log webhook shipping — optional `LOG_WEBHOOK_URL` + `LOG_WEBHOOK_TOKEN` for pushing logs to any HTTP endpoint (Splunk HEC, Loki, etc.)
 - [x] Request header display — show incoming headers in `/api/system` response
-- [ ] Environment variable filtering — regex-based via `ENV_FILTER` env var
-- [ ] Configuration documentation — document all env vars and options
+- [x] Environment variable filtering — case-insensitive regex via `ENV_FILTER` env var
+- [x] Configuration documentation — `docs/CONFIGURATION.md` with full env var details and examples
 
 **Design Decisions:**
 - **Prometheus format** chosen over OpenTelemetry for simplicity and wide compatibility. Most observability platforms (Splunk, Datadog, Grafana, etc.) can ingest Prometheus format natively or via collectors.
 - **Log webhook** keeps the app vendor-neutral — just HTTP POST with JSON. No Splunk SDK, no Loki SDK. The receiving end handles any format transformation needed.
 - **Refactoring approach:** Split by responsibility into separate files within the same package (not separate packages under `internal/`). This keeps imports simple while improving organization. **Important:** Provide detailed explanations during refactor — explain what's moving, why it belongs together, and how Go's package system works with multiple files.
 
-### Phase 8: CI/CD
+### Phase 8: CI/CD (demo-app)
 
-**Step 1: Tests (prerequisite for automation)**
+**Step 1: Tests**
 - [ ] Unit tests for handlers (`handlers_test.go`)
   - Health endpoint: returns 200, has status field
   - Items CRUD: create, list, get, update, delete
@@ -295,12 +295,17 @@ resource "demoapp_display" "status" {
 - [ ] Push to GitHub Container Registry (ghcr.io)
 - [ ] Create GitHub Release with binaries attached
 
-**Step 4: Terraform Provider Release**
-- [ ] Terraform provider: GPG signing setup
-- [ ] Terraform provider: GitHub Actions release workflow
-- [ ] Terraform provider: Publish to registry.terraform.io
-
 **Why before Distribution:** CI/CD produces the artifacts (binaries, containers). Distribution documents how to consume them. Helm charts reference container images that CI/CD publishes.
+
+### Phase 8b: CI/CD (terraform-provider-demoapp)
+
+Separate track for the Terraform provider repo. Can be done in parallel with or after Phase 8.
+
+- [ ] GPG signing setup for provider binaries
+- [ ] GitHub Actions release workflow (triggered by git tags)
+- [ ] GoReleaser configuration for provider builds
+- [ ] Publish to registry.terraform.io
+- [ ] Update demo-app-examples to use published provider (remove dev overrides)
 
 ### Phase 9: Distribution & Documentation
 - [ ] GitHub releases with binaries (automated by Phase 8)
@@ -317,6 +322,14 @@ resource "demoapp_display" "status" {
 ### Phase 10: Demo Library
 
 Expanded demos showcasing demo-app with various technologies. Lives in `demo-app-examples/` repo.
+
+**Multi-Tier Architecture:**
+- [ ] Two demo-app containers: "backend" (`:8081`) and "frontend" (`:8080`)
+- [ ] Custom `DEMO_*` env vars on each container with `ENV_FILTER="^DEMO_"`
+- [ ] HTTP provider fetches `/api/system` from backend
+- [ ] DemoApp provider posts backend's system info to frontend's `/api/display`
+- [ ] Shows: multi-container orchestration, service-to-service data flow, ENV_FILTER in action
+- [ ] "Demo for the demo" — demo-app instances demonstrating each other
 
 **Secrets Management:**
 - [ ] Vault demo (works with CE and Enterprise)
