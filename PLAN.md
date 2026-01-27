@@ -272,28 +272,30 @@ resource "demoapp_display" "status" {
 - **Log webhook** keeps the app vendor-neutral — just HTTP POST with JSON. No Splunk SDK, no Loki SDK. The receiving end handles any format transformation needed.
 - **Refactoring approach:** Split by responsibility into separate files within the same package (not separate packages under `internal/`). This keeps imports simple while improving organization. **Important:** Provide detailed explanations during refactor — explain what's moving, why it belongs together, and how Go's package system works with multiple files.
 
-### Phase 8: CI/CD (demo-app)
+### Phase 8: CI/CD (demo-app) ✓ `v0.8.0`
 
 **Step 1: Tests**
-- [ ] Unit tests for handlers (`handlers_test.go`)
+- [x] Unit tests for handlers (`handlers_test.go`)
   - Health endpoint: returns 200, has status field
   - Items CRUD: create, list, get, update, delete
   - Items errors: 404 for non-existent, 400 for invalid ID/JSON
   - Display: GET empty, POST JSON, GET returns it
   - System: returns hostname, ips fields
-- [ ] Test coverage target: core API paths
+- [x] Test coverage target: core API paths (~48% statement coverage)
 
 **Step 2: CI Pipeline**
-- [ ] GitHub Actions workflow for CI (build, test, lint on push/PR)
-- [ ] Go vet / staticcheck for code quality
-- [ ] Docker build verification (container starts, /health responds)
+- [x] GitHub Actions workflow for CI (build, test, lint on push/PR)
+- [x] Go vet / staticcheck for code quality
+- [x] Docker build verification (container starts, /health responds)
+- [x] `paths-ignore` for markdown/docs-only changes
+- [x] DHI registry authentication via GitHub secrets
 
 **Step 3: Release Automation**
-- [ ] Release workflow triggered by git tags
-- [ ] Multi-arch binary builds (linux/mac/windows × amd64/arm64)
-- [ ] Multi-arch Docker image builds
-- [ ] Push to GitHub Container Registry (ghcr.io)
-- [ ] Create GitHub Release with binaries attached
+- [x] Release workflow triggered by git tags
+- [x] Multi-arch binary builds (linux/mac/windows × amd64/arm64)
+- [x] Multi-arch Docker image builds
+- [x] Push to GitHub Container Registry (ghcr.io)
+- [x] Create GitHub Release with binaries attached
 
 **Why before Distribution:** CI/CD produces the artifacts (binaries, containers). Distribution documents how to consume them. Helm charts reference container images that CI/CD publishes.
 
@@ -453,6 +455,26 @@ Make the frontend more visually appealing — colors, typography, layout, animat
 - Vendor-specific integrations baked into core (Vault SDK, Terraform SDK, etc.)
 
 The app should stay generic. Demo-specific behavior comes from *how you use it*, not built-in features.
+
+---
+
+## Versioning
+
+Follows semantic versioning (`MAJOR.MINOR.PATCH`) with phase-based milestones:
+
+| Segment | Meaning | Example |
+|---------|---------|---------|
+| `MINOR` | Maps to project phase | Phase 8 = `v0.8.0`, Phase 9 = `v0.9.0` |
+| `PATCH` | Bug fixes within a phase | `v0.8.1` for a fix after Phase 8 release |
+| `MAJOR` | Reserved for production-ready | `v1.0.0` when the project is "complete" |
+
+**Tagging a release:**
+```bash
+git tag v0.9.0
+git push --tags
+```
+
+Pushing a `v*` tag triggers the release workflow, which builds multi-arch binaries, pushes a Docker image to `ghcr.io`, and creates a GitHub Release.
 
 ---
 

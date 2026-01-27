@@ -1438,3 +1438,140 @@ All items done:
 Phase 8: CI/CD — tests, GitHub Actions, releases.
 
 ---
+
+## 2026-01-27 — Session 15: Phase 8 — CI/CD
+
+### What We Built
+- Unit tests for all API handlers (`handlers_test.go`, 14 tests)
+- CI workflow (`.github/workflows/ci.yml`) — build, test, lint, Docker verify
+- Release workflow (`.github/workflows/release.yml`) — tag-triggered, multi-arch
+- Versioning scheme: phase-based semver
+
+### Go Concepts Covered
+
+**`testing` Package and `httptest`**
+
+Go's stdlib includes everything needed for HTTP handler testing:
+
+```go
+// Create a fake request and response recorder
+req := httptest.NewRequest("GET", "/health", nil)
+rr := httptest.NewRecorder()
+
+// Call the handler directly — no server needed
+healthHandler(rr, req)
+
+// Check the response
+if rr.Code != 200 { t.Errorf("got %d", rr.Code) }
+```
+
+- `httptest.NewRequest` — creates an `*http.Request` without a real network connection
+- `httptest.NewRecorder` — implements `http.ResponseWriter`, captures status code and body
+- Like Flask's test client, but lower-level — you call handlers directly
+
+**`TestMain(m *testing.M)` — Suite Setup**
+
+```go
+func TestMain(m *testing.M) {
+    db, _ = initStore(":memory:")
+    defer db.Close()
+    os.Exit(m.Run())
+}
+```
+
+- Runs once before all tests in the package
+- Used to set up shared resources (database, sequences)
+- `m.Run()` executes all `Test*` functions and returns the exit code
+- Like pytest's `conftest.py` fixtures but at the package level
+
+**Test Function Naming**
+
+- Must start with `Test` and take `*testing.T`
+- `t.Errorf()` — marks test failed but keeps running (soft failure)
+- `t.Fatalf()` — marks test failed and stops immediately (hard failure)
+- Use `Fatalf` when later assertions depend on this one passing
+
+### Tests Written (14 total)
+
+| Endpoint | Tests |
+|----------|-------|
+| `/health` | Returns 200, has `status` and `timestamp` fields |
+| `/api/items` | Create (201), List, Get by ID, Update, Delete (204) |
+| `/api/items` errors | Non-existent ID (404), invalid ID "abc" (400), invalid JSON (400), missing name (400) |
+| `/api/display` | Empty returns `{}`, POST then GET returns data, invalid JSON (400) |
+| `/api/system` | Returns all expected fields, POST returns 405 |
+
+### CI Workflow Design
+
+**Two parallel jobs:**
+
+| Job | Steps |
+|-----|-------|
+| `build-and-test` | Checkout → Setup Go (version from `go.mod`) → Build → Test → `go vet` → `staticcheck` |
+| `docker-verify` | Checkout → DHI login → Build image → Start container → Poll `/health` → Verify response |
+
+**Key decisions:**
+- **`paths-ignore`** for `*.md` and `docs/**` — skip CI for documentation-only changes
+- **`go-version-file: go.mod`** — CI automatically uses the same Go version as the project
+- **DHI authentication** — `docker/login-action` with GitHub secrets (`DHI_USERNAME`, `DHI_PASSWORD`) since base images require Docker Hub auth
+- **Health poll loop** — tries `/health` every second for 30 seconds, dumps `docker logs` on failure
+- **`if: always()`** on container cleanup — runs even if earlier steps fail
+
+### Release Workflow Design
+
+**Triggered by:** `git push --tags` with `v*` pattern
+
+**Three jobs with dependencies:**
+```
+build-binaries ──┐
+                  ├──> github-release
+docker-image ────┘
+```
+
+**Binary matrix (6 builds in parallel):**
+
+| OS | Arch |
+|----|------|
+| linux | amd64, arm64 |
+| darwin | amd64, arm64 |
+| windows | amd64, arm64 |
+
+- `-ldflags="-s -w"` strips debug symbols for smaller binaries
+- Each binary uploaded as artifact, then attached to GitHub Release
+
+**Docker image:**
+- Multi-arch (linux/amd64 + linux/arm64) via buildx + QEMU
+- Pushed to `ghcr.io/billgrant/demo-app` with version tag + `latest`
+- `GITHUB_TOKEN` provides GHCR auth automatically
+
+**GitHub Release:**
+- Auto-generated release notes from commit history
+- All 6 binaries attached
+
+### Versioning Scheme
+
+| Segment | Meaning | Example |
+|---------|---------|---------|
+| `MINOR` | Maps to project phase | Phase 8 = `v0.8.0` |
+| `PATCH` | Bug fixes within a phase | `v0.8.1` |
+| `MAJOR` | Production-ready | `v1.0.0` |
+
+### GitHub Secrets Required
+
+| Secret | Purpose |
+|--------|---------|
+| `DHI_USERNAME` | Docker Hub username for DHI registry |
+| `DHI_PASSWORD` | Docker Hub password/token for DHI registry |
+
+`GITHUB_TOKEN` is provided automatically — no setup needed.
+
+### Files Changed
+- `handlers_test.go` — new file, 14 unit tests
+- `.github/workflows/ci.yml` — new file, CI pipeline
+- `.github/workflows/release.yml` — new file, release automation
+- `PLAN.md` — Phase 8 marked complete, versioning section added
+- `DEVLOG.md` — this session
+
+### Phase 8 Complete ✓ `v0.8.0`
+
+---

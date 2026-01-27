@@ -106,6 +106,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          pattern: demo-app-*
           merge-multiple: true
 
       - name: Create GitHub Release
