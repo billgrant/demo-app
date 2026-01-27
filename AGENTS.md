@@ -223,16 +223,23 @@ This applies to:
 ### Blog Post Structure (suggested)
 ```markdown
 ---
-layout: post
 title: "Demo App: [Phase/Topic]"
 date: YYYY-MM-DD
-tags: demo-app go learning-in-public
+categories:
+  - projects
+  - go
+tags:
+  - demo-app
+  - go
+  - learning-in-public
 ---
 
 *** Bill's intro — sets context, what we set out to do ***
 
 [Main content — what happened, code examples, decisions]
 ```
+
+**IMPORTANT:** Do NOT set `layout: post` — Minimal Mistakes uses `single`, and `_config.yml` already sets it as the default. Use YAML lists for categories and tags, not space-separated strings.
 
 Note: Intro only, no outro. The `*** ***` markers signal AI transparency — content below is Claude's synthesis of the sessions.
 
