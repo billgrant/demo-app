@@ -299,15 +299,16 @@ resource "demoapp_display" "status" {
 
 **Why before Distribution:** CI/CD produces the artifacts (binaries, containers). Distribution documents how to consume them. Helm charts reference container images that CI/CD publishes.
 
-### Phase 8b: CI/CD (terraform-provider-demoapp)
+### Phase 8b: CI/CD (terraform-provider-demoapp) ✓ `v0.1.0`
 
-Separate track for the Terraform provider repo. Can be done in parallel with or after Phase 8.
+Separate track for the Terraform provider repo.
 
-- [ ] GPG signing setup for provider binaries
-- [ ] GitHub Actions release workflow (triggered by git tags)
-- [ ] GoReleaser configuration for provider builds
-- [ ] Publish to registry.terraform.io
-- [ ] Update demo-app-examples to use published provider (remove dev overrides)
+- [x] GPG signing setup for provider binaries (personal email, not corporate)
+- [x] GitHub Actions release workflow (triggered by git tags)
+- [x] GoReleaser configuration for provider builds (fixed `formats` deprecation)
+- [x] Publish to registry.terraform.io (personal account)
+- [x] Update demo-app-examples to use published provider (remove dev overrides)
+- [x] Switch demo-app-examples to ghcr.io container image (no local build needed)
 
 ### Phase 9: Distribution & Documentation
 - [ ] GitHub releases with binaries (automated by Phase 8)

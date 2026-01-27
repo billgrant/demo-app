@@ -1574,4 +1574,106 @@ docker-image ────┘
 
 ### Phase 8 Complete ✓ `v0.8.0`
 
+### Bug Fix: `v0.8.1`
+
+Release workflow failed on artifact download — the `docker/build-push-action` creates an internal buildx metadata artifact that got picked up by the download step. Fixed by adding `pattern: demo-app-*` to filter only our binary artifacts. First patch version — versioning scheme validated.
+
+---
+
+## 2026-01-27 — Session 15 (continued): Phase 8b — Provider CI/CD
+
+### What We Built
+- GitHub Actions release workflow for `terraform-provider-demoapp`
+- GPG signing for provider binaries (Terraform Registry requirement)
+- Published provider to registry.terraform.io
+- Updated demo-app-examples to use published provider and ghcr.io image
+
+### GPG Signing for Terraform Registry
+
+The Terraform Registry requires GPG-signed checksums to verify provider binaries. The signing flow:
+
+1. **Generate GPG key** — `gpg --full-generate-key` (RSA 4096, personal email)
+2. **Public key → Terraform Registry** — Settings > Signing Keys
+3. **Private key → GitHub secret** — `GPG_PRIVATE_KEY` on the provider repo
+4. **GoReleaser signs checksums** — uses `GPG_FINGERPRINT` env var at release time
+
+**Key decision:** Used personal email, not corporate. If you leave a job and lose access to the corporate email, you'd lose control of the signing key and registry account. Own your infrastructure.
+
+### Release Workflow
+
+```yaml
+# Imports GPG key, then runs GoReleaser
+- uses: crazy-max/ghaction-import-gpg@v6
+  with:
+    gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+
+- uses: goreleaser/goreleaser-action@v6
+  with:
+    args: release --clean
+  env:
+    GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+```
+
+**Key difference from demo-app release:** GoReleaser handles everything — binary builds, checksums, signing, and GitHub Release creation. The demo-app workflow uses raw `go build` + `docker buildx` because it also publishes container images, which GoReleaser doesn't handle.
+
+### GoReleaser Deprecation Fix
+
+```yaml
+# Before (deprecated):
+archives:
+  - format: zip
+
+# After (v2):
+archives:
+  - formats:
+      - zip
+```
+
+GoReleaser v2 changed `format` (string) to `formats` (list) to support per-OS format selection.
+
+### Publishing to Terraform Registry
+
+1. Created personal account on registry.terraform.io (GitHub OAuth)
+2. Added GPG public key to registry signing keys
+3. Published `terraform-provider-demoapp` — registry auto-discovers from GitHub repo name
+4. Registry watches for GitHub Releases and indexes them automatically
+
+**Initial error:** "No releases found" — the registry requires at least one release to exist before publishing. Had to create the workflow, tag `v0.1.0`, wait for the release, then retry publishing.
+
+### Demo-App-Examples Updated
+
+**Before:** Required local Docker build + dev overrides in `~/.terraformrc`
+**After:** `git clone` → `terraform init` → `terraform apply` — zero prerequisites beyond Terraform and Docker
+
+Changes:
+- `main.tf` — added `version = "~> 0.1"`, switched image to `ghcr.io/billgrant/demo-app:latest`
+- `~/.terraformrc` — dev overrides commented out (preserved for future local dev)
+- `README.md` — simplified prerequisites, removed manual build/override instructions
+
+### Provider README Updated
+- Fixed version constraint examples (`~> 1.0` → `~> 0.1`)
+- Removed stale SQLite concurrency known issue (fixed in Phase 6 with BadgerDB)
+
+### Files Changed (across repos)
+
+**terraform-provider-demoapp:**
+- `.github/workflows/release.yml` — new file, GoReleaser release workflow
+- `.goreleaser.yml` — fixed `formats` deprecation
+- `README.md` — version constraints, removed stale known issues
+
+**demo-app-examples:**
+- `baseline/main.tf` — published provider + ghcr.io image
+- `README.md` — simplified prerequisites
+
+**demo-app:**
+- `PLAN.md` — Phase 8b marked complete
+
+### Phase 8b Complete ✓ `v0.1.0`
+
+The full pipeline now works end-to-end:
+1. Push code to `demo-app` → CI runs tests and lints
+2. Tag `demo-app` → builds binaries + Docker image, creates GitHub Release
+3. Tag `terraform-provider-demoapp` → GoReleaser builds + signs, Terraform Registry indexes
+4. Anyone can `terraform init` + `terraform apply` with no local setup
+
 ---
