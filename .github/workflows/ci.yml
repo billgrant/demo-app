@@ -1,0 +1,83 @@
+name: CI
+
+# Run on pushes to main and on all pull requests
+# Skip when only markdown or docs files change
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
+  pull_request:
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: go build -o demo-app .
+
+      - name: Run tests
+        run: go test -v -cover ./...
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+
+      - name: Run staticcheck
+        run: staticcheck ./...
+
+  docker-verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to DHI registry
+        uses: docker/login-action@v3
+        with:
+          registry: dhi.io
+          username: ${{ secrets.DHI_USERNAME }}
+          password: ${{ secrets.DHI_PASSWORD }}
+
+      - name: Build Docker image
+        run: docker build -t demo-app:ci .
+
+      - name: Start container
+        run: docker run -d --name demo-app -p 8080:8080 demo-app:ci
+
+      - name: Wait for container to be healthy
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "Health check passed"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Health check failed after 30 seconds"
+          docker logs demo-app
+          exit 1
+
+      - name: Verify health response
+        run: |
+          curl -sf http://localhost:8080/health | jq .
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f demo-app
